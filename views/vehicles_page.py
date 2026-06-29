@@ -1,14 +1,15 @@
 from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLineEdit, QPushButton,
-    QTableWidget, QTableWidgetItem, QHeaderView, QMessageBox,QLabel
+    QTableWidget, QTableWidgetItem, QHeaderView, QLabel
 )
 from PySide6.QtCore import Qt, Signal
 from PySide6.QtGui import QIcon, QFont
 
 
 class VehiclesPage(QWidget):
-    """Searchable vehicles table with add button."""
+    """Searchable vehicles table with add button and back navigation."""
     add_vehicle_clicked = Signal()
+    back_requested = Signal()
 
     DUMMY_DATA = [
         ["LES-1234", "Bus", "Hino RN8J", "ENG-001", "CHS-001", "Diesel"],
@@ -25,12 +26,24 @@ class VehiclesPage(QWidget):
     def _setup_ui(self):
         layout = QVBoxLayout(self)
         layout.setContentsMargins(30, 20, 30, 20)
+        layout.setSpacing(20)
+
+        # Top area: back button + page title
+        top_layout = QHBoxLayout()
+        self.back_btn = QPushButton()
+        self.back_btn.setIcon(QIcon.fromTheme("go-previous"))
+        self.back_btn.setToolTip("Back to Dashboard")
+        self.back_btn.setFixedSize(40, 40)
+        self.back_btn.clicked.connect(self.back_requested.emit)
+        top_layout.addWidget(self.back_btn)
 
         title = QLabel("Vehicle Management")
         title.setFont(QFont("Segoe UI", 20, QFont.Bold))
-        layout.addWidget(title)
+        top_layout.addWidget(title)
+        top_layout.addStretch()
+        layout.addLayout(top_layout)
 
-        # Search and Add bar
+        # Middle area: search bar and action button
         toolbar = QHBoxLayout()
         self.search_edit = QLineEdit()
         self.search_edit.setPlaceholderText("Search by registration number...")
@@ -43,7 +56,7 @@ class VehiclesPage(QWidget):
         toolbar.addWidget(self.add_btn)
         layout.addLayout(toolbar)
 
-        # Table
+        # Bottom area: table
         self.table = QTableWidget()
         self.table.setColumnCount(6)
         self.table.setHorizontalHeaderLabels([
@@ -63,7 +76,7 @@ class VehiclesPage(QWidget):
 
     def _filter_table(self, text):
         for row in range(self.table.rowCount()):
-            item = self.table.item(row, 0)  # Registration number column
+            item = self.table.item(row, 0)
             if item and text.lower() in item.text().lower():
                 self.table.setRowHidden(row, False)
             else:
