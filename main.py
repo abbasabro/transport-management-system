@@ -17,7 +17,9 @@ def main():
     #     # Fallback to a built-in icon
     #     app.setWindowIcon(app.style().standardIcon(app.style().SP_ComputerIcon))
 
+
     window = MainWindow()
+    window.setWindowIcon(QIcon(r"G:\Transport system\Pyside-6 Learning\BBSTUD_logo.jpeg"))
     window.show()
     sys.exit(app.exec())
 

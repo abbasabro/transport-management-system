@@ -8,10 +8,12 @@ from views.drivers_page import DriversPage
 from views.logs_page import LogsPage
 from views.repairs_page import RepairsPage
 from views.reports_page import ReportsPage
+from views.all_logs_page import AllLogsPage
 from dialogs.add_vehicle_dialog import AddVehicleDialog
 from dialogs.add_driver_dialog import AddDriverDialog
 from dialogs.add_log_dialog import AddLogDialog
 from dialogs.add_repair_dialog import AddRepairDialog
+from dialogs.vehicle_logs_dialog import VehicleLogsDialog
 
 
 class MainWindow(QMainWindow):
@@ -33,13 +35,16 @@ class MainWindow(QMainWindow):
         self.logs_page = LogsPage()
         self.repairs_page = RepairsPage()
         self.reports_page = ReportsPage()
+        self.all_logs_page = AllLogsPage()
 
+        # Add pages to stack (order matters for indices)
         self.stack.addWidget(self.dashboard_page)   # index 0
         self.stack.addWidget(self.vehicles_page)    # index 1
         self.stack.addWidget(self.drivers_page)     # index 2
         self.stack.addWidget(self.logs_page)        # index 3
-        self.stack.addWidget(self.repairs_page)     # index 4
-        self.stack.addWidget(self.reports_page)     # index 5
+        self.stack.addWidget(self.all_logs_page)    # index 4  (new)
+        self.stack.addWidget(self.repairs_page)     # index 5
+        self.stack.addWidget(self.reports_page)     # index 6
 
         self._setup_menu_bar()
         self._setup_status_bar()
@@ -76,6 +81,11 @@ class MainWindow(QMainWindow):
         logs_action.triggered.connect(lambda: self.stack.setCurrentWidget(self.logs_page))
         ops_menu.addAction(logs_action)
 
+        # NEW: All Logs action
+        all_logs_action = QAction(QIcon.fromTheme("view-list-tree"), "All Logs", self)
+        all_logs_action.triggered.connect(lambda: self.stack.setCurrentWidget(self.all_logs_page))
+        ops_menu.addAction(all_logs_action)
+
         repair_action = QAction(QIcon.fromTheme("applications-engineering"), "Repair Management", self)
         repair_action.triggered.connect(lambda: self.stack.setCurrentWidget(self.repairs_page))
         ops_menu.addAction(repair_action)
@@ -107,13 +117,24 @@ class MainWindow(QMainWindow):
         dash.drivers_list_clicked.connect(lambda: self.stack.setCurrentWidget(self.drivers_page))
         dash.repairs_clicked.connect(lambda: self.stack.setCurrentWidget(self.repairs_page))
         dash.reports_clicked.connect(lambda: self.stack.setCurrentWidget(self.reports_page))
+        dash.all_logs_clicked.connect(lambda: self.stack.setCurrentWidget(self.all_logs_page))
 
     # ---------- Page signal connections ----------
     def _connect_page_signals(self):
+        # Back button navigation for all pages except Dashboard
+        self.vehicles_page.back_requested.connect(lambda: self.stack.setCurrentWidget(self.dashboard_page))
+        self.drivers_page.back_requested.connect(lambda: self.stack.setCurrentWidget(self.dashboard_page))
+        self.logs_page.back_requested.connect(lambda: self.stack.setCurrentWidget(self.dashboard_page))
+        self.all_logs_page.back_requested.connect(lambda: self.stack.setCurrentWidget(self.dashboard_page))
+        self.repairs_page.back_requested.connect(lambda: self.stack.setCurrentWidget(self.dashboard_page))
+        self.reports_page.back_requested.connect(lambda: self.stack.setCurrentWidget(self.dashboard_page))
+
+        # Add dialogs from pages
         self.vehicles_page.add_vehicle_clicked.connect(self.open_add_vehicle_dialog)
         self.drivers_page.add_driver_clicked.connect(self.open_add_driver_dialog)
         self.logs_page.add_log_requested.connect(self.open_add_log_dialog)
         self.repairs_page.add_repair_clicked.connect(self.open_add_repair_dialog)
+        self.all_logs_page.vehicle_log_requested.connect(self.open_vehicle_logs_dialog)
 
     # ---------- Dialog openers ----------
     def open_add_vehicle_dialog(self):
@@ -135,3 +156,7 @@ class MainWindow(QMainWindow):
         dialog = AddRepairDialog(self)
         if dialog.exec():
             QMessageBox.information(self, "Success", "Repair record saved (placeholder).")
+
+    def open_vehicle_logs_dialog(self, vehicle_reg):
+        dialog = VehicleLogsDialog(vehicle_reg, self)
+        dialog.exec()

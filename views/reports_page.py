@@ -3,11 +3,12 @@ from PySide6.QtWidgets import (
     QLineEdit, QPushButton, QMessageBox, QGroupBox
 )
 from PySide6.QtCore import QDate, Signal
-from PySide6.QtGui import QFont
+from PySide6.QtGui import QFont, QIcon
 
 
 class ReportsPage(QWidget):
     """Report generation page with date selectors and placeholder buttons."""
+    back_requested = Signal()
 
     def __init__(self):
         super().__init__()
@@ -16,11 +17,22 @@ class ReportsPage(QWidget):
     def _setup_ui(self):
         layout = QVBoxLayout(self)
         layout.setContentsMargins(40, 30, 40, 30)
+        layout.setSpacing(20)
+
+        # Top area: back button + heading
+        top_layout = QHBoxLayout()
+        self.back_btn = QPushButton()
+        self.back_btn.setIcon(QIcon.fromTheme("go-previous"))
+        self.back_btn.setToolTip("Back to Dashboard")
+        self.back_btn.setFixedSize(40, 40)
+        self.back_btn.clicked.connect(self.back_requested.emit)
+        top_layout.addWidget(self.back_btn)
 
         heading = QLabel("Download Reports")
         heading.setFont(QFont("Segoe UI", 22, QFont.Bold))
-        layout.addWidget(heading)
-        layout.addSpacing(20)
+        top_layout.addWidget(heading)
+        top_layout.addStretch()
+        layout.addLayout(top_layout)
 
         # Date selection
         date_group = QGroupBox("Select Date Range")
@@ -46,7 +58,6 @@ class ReportsPage(QWidget):
         self.fuel_input.setPlaceholderText("Optional")
         fuel_layout.addWidget(self.fuel_input)
         layout.addLayout(fuel_layout)
-        layout.addSpacing(20)
 
         # Report buttons
         report_group = QGroupBox("Available Reports")

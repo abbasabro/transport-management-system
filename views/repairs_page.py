@@ -1,6 +1,6 @@
 from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLineEdit, QPushButton,
-    QTableWidget, QTableWidgetItem, QHeaderView,QLabel
+    QTableWidget, QTableWidgetItem, QHeaderView, QLabel
 )
 from PySide6.QtCore import Qt, Signal
 from PySide6.QtGui import QIcon, QFont
@@ -9,6 +9,7 @@ from PySide6.QtGui import QIcon, QFont
 class RepairsPage(QWidget):
     """Repair management page with table and add button."""
     add_repair_clicked = Signal()
+    back_requested = Signal()
 
     DUMMY_DATA = [
         ["LES-1234", "2025-01-10", "Engine overhaul", "25000", "Haji Auto", "Scheduled"],
@@ -23,11 +24,24 @@ class RepairsPage(QWidget):
     def _setup_ui(self):
         layout = QVBoxLayout(self)
         layout.setContentsMargins(30, 20, 30, 20)
+        layout.setSpacing(20)
+
+        # Top area: back button + title
+        top_layout = QHBoxLayout()
+        self.back_btn = QPushButton()
+        self.back_btn.setIcon(QIcon.fromTheme("go-previous"))
+        self.back_btn.setToolTip("Back to Dashboard")
+        self.back_btn.setFixedSize(40, 40)
+        self.back_btn.clicked.connect(self.back_requested.emit)
+        top_layout.addWidget(self.back_btn)
 
         title = QLabel("Repair Management")
         title.setFont(QFont("Segoe UI", 20, QFont.Bold))
-        layout.addWidget(title)
+        top_layout.addWidget(title)
+        top_layout.addStretch()
+        layout.addLayout(top_layout)
 
+        # Middle area: search and add button
         toolbar = QHBoxLayout()
         self.search_edit = QLineEdit()
         self.search_edit.setPlaceholderText("Search by description...")
@@ -40,6 +54,7 @@ class RepairsPage(QWidget):
         toolbar.addWidget(self.add_btn)
         layout.addLayout(toolbar)
 
+        # Bottom area: table
         self.table = QTableWidget()
         self.table.setColumnCount(6)
         self.table.setHorizontalHeaderLabels([
