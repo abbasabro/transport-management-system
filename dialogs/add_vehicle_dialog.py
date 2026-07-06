@@ -19,7 +19,12 @@ class AddVehicleDialog(QDialog):
         self.vehicle_number = QLineEdit()
         form.addRow("Vehicle Number:", self.vehicle_number)
 
-        self.vehicle_type = QLineEdit()
+        # Vehicle Type is now a dropdown
+        self.vehicle_type = QComboBox()
+        self.vehicle_type.addItems([
+            "Car", "Bus", "HiAce", "Coaster", "Ambulance",
+            "Pickup", "Tractor", "Motorcycle", "Bicycle", "Other"
+        ])
         form.addRow("Vehicle Type:", self.vehicle_type)
 
         self.model = QLineEdit()
