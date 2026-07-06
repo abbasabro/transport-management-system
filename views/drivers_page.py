@@ -1,34 +1,35 @@
 from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLineEdit, QPushButton,
-    QTableWidget, QTableWidgetItem, QHeaderView, QLabel
+    QTableWidget, QTableWidgetItem, QHeaderView, QLabel, QAbstractItemView,
+    QMessageBox
 )
 from PySide6.QtCore import Qt, Signal
 from PySide6.QtGui import QIcon, QFont
 
+from database.repositories.driver_repository import DriverRepository
+from database.repositories.vehicle_repository import VehicleRepository
+
 
 class DriversPage(QWidget):
-    """Searchable drivers table with add button and back navigation."""
+    """Drivers management page with table, search, add, edit, and back button."""
+
     add_driver_clicked = Signal()
+    edit_driver_requested = Signal(int)  # driver_id
     back_requested = Signal()
 
-    DUMMY_DATA = [
-        ["Ahmed Khan", "Driver", "LES-1234", "0300-1234567", "42201-1234567-1", "Route 5"],
-        ["Bilal Saeed", "Driver", "LEA-5678", "0321-9876543", "42201-9876543-2", "Route 12"],
-        ["Kamran Ali", "Driver", "RIG-9901", "0333-1122334", "42201-1122334-3", "Campus Shuttle"],
-        ["Sara Bibi", "Driver", "ABC-111", "0345-5566778", "42201-5566778-4", "Staff Route"],
-    ]
-
-    def __init__(self):
+    def __init__(self, driver_repo: DriverRepository, vehicle_repo: VehicleRepository):
         super().__init__()
+        self.driver_repo = driver_repo
+        self.vehicle_repo = vehicle_repo
         self._setup_ui()
-        self._load_data(self.DUMMY_DATA)
+        self.load_data()
 
     def _setup_ui(self):
         layout = QVBoxLayout(self)
         layout.setContentsMargins(30, 20, 30, 20)
         layout.setSpacing(20)
 
-        # Top area: back button + title
+        # Top: back button + title
         top_layout = QHBoxLayout()
         self.back_btn = QPushButton()
         self.back_btn.setIcon(QIcon.fromTheme("go-previous"))
@@ -43,7 +44,7 @@ class DriversPage(QWidget):
         top_layout.addStretch()
         layout.addLayout(top_layout)
 
-        # Middle area: search and add button
+        # Middle: search bar + action buttons
         toolbar = QHBoxLayout()
         self.search_edit = QLineEdit()
         self.search_edit.setPlaceholderText("Search by name...")
@@ -54,27 +55,138 @@ class DriversPage(QWidget):
         self.add_btn.setIcon(QIcon.fromTheme("list-add"))
         self.add_btn.clicked.connect(self.add_driver_clicked.emit)
         toolbar.addWidget(self.add_btn)
+
+        self.edit_btn = QPushButton("Edit Selected")
+        self.edit_btn.setIcon(QIcon.fromTheme("document-edit"))
+        self.edit_btn.clicked.connect(self._edit_selected)
+        toolbar.addWidget(self.edit_btn)
+
+        self.delete_btn = QPushButton("Delete Selected")
+        self.delete_btn.setIcon(QIcon.fromTheme("edit-delete"))
+        self.delete_btn.clicked.connect(self._delete_selected)
+        toolbar.addWidget(self.delete_btn)
         layout.addLayout(toolbar)
 
-        # Bottom area: table
+        # Bottom: table
         self.table = QTableWidget()
         self.table.setColumnCount(6)
         self.table.setHorizontalHeaderLabels([
-            "Driver Name", "Designation", "Vehicle Number", "Contact Number",
-            "CNIC", "Route"
+            "Driver Name", "Designation", "Vehicle Number",
+            "Contact Number", "CNIC", "Route"
         ])
         self.table.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
-        self.table.setEditTriggers(QTableWidget.NoEditTriggers)
-        self.table.setSelectionBehavior(QTableWidget.SelectRows)
+        # Allow editing only on Route column (index 5)
+        self.table.setEditTriggers(QAbstractItemView.DoubleClicked | QAbstractItemView.EditKeyPressed)
+        self.table.setSelectionBehavior(QAbstractItemView.SelectRows)
+        self.table.setSelectionMode(QAbstractItemView.SingleSelection)
+        # Connect cell change to update route in DB
+        self.table.itemChanged.connect(self._on_item_changed)
         layout.addWidget(self.table)
 
-    def _load_data(self, data):
-        self.table.setRowCount(len(data))
-        for row_idx, row_data in enumerate(data):
-            for col_idx, value in enumerate(row_data):
-                self.table.setItem(row_idx, col_idx, QTableWidgetItem(value))
+    def load_data(self):
+        """Fetch drivers from database and populate table."""
+        try:
+            drivers = self.driver_repo.get_all_active_with_vehicle()
+            self._populate_table(drivers)
+        except Exception as e:
+            self.table.setRowCount(0)
+
+    def _populate_table(self, drivers):
+        """Fill table with driver data, temporarily blocking itemChanged signal."""
+        self.table.blockSignals(True)
+        self.table.setRowCount(len(drivers))
+        for row, d in enumerate(drivers):
+            # Store driver id in first column's UserRole
+            name_item = QTableWidgetItem(d["name"])
+            name_item.setData(Qt.UserRole, d["id"])
+            name_item.setFlags(name_item.flags() & ~Qt.ItemIsEditable)
+            self.table.setItem(row, 0, name_item)
+
+            desig_item = QTableWidgetItem(d["designation"])
+            desig_item.setFlags(desig_item.flags() & ~Qt.ItemIsEditable)
+            self.table.setItem(row, 1, desig_item)
+
+            # Vehicle column (read-only, shows registration number)
+            veh_item = QTableWidgetItem(d.get("vehicle_reg", "Not Assigned"))
+            veh_item.setFlags(veh_item.flags() & ~Qt.ItemIsEditable)
+            self.table.setItem(row, 2, veh_item)
+
+            contact_item = QTableWidgetItem(d.get("contact_number", ""))
+            contact_item.setFlags(contact_item.flags() & ~Qt.ItemIsEditable)
+            self.table.setItem(row, 3, contact_item)
+
+            cnic_item = QTableWidgetItem(d["cnic"])
+            cnic_item.setFlags(cnic_item.flags() & ~Qt.ItemIsEditable)
+            self.table.setItem(row, 4, cnic_item)
+
+            # Route column (editable)
+            route_item = QTableWidgetItem(d.get("assigned_route", ""))
+            route_item.setFlags(route_item.flags() | Qt.ItemIsEditable)
+            self.table.setItem(row, 5, route_item)
+        self.table.blockSignals(False)
+
+    def _on_item_changed(self, item):
+        """Called when the user edits the Route column inline."""
+        if item.column() != 5:
+            return
+        driver_id = self.table.item(item.row(), 0).data(Qt.UserRole)
+        new_route = item.text().strip()
+        try:
+            # We need the full driver data to update only route.
+            # Fetch current driver, then update with same fields, new route.
+            driver = self.driver_repo.get_by_id(driver_id)
+            if driver is None:
+                QMessageBox.warning(self, "Error", "Driver not found.")
+                self.load_data()  # refresh
+                return
+            self.driver_repo.update(
+                driver_id=driver_id,
+                name=driver["name"],
+                designation=driver["designation"],
+                contact_number=driver["contact_number"] or "",
+                cnic=driver["cnic"],
+                assigned_vehicle_id=driver["assigned_vehicle_id"],
+                assigned_route=new_route,
+            )
+        except ValueError as e:
+            QMessageBox.warning(self, "Update Failed", str(e))
+            self.load_data()  # revert changes by refreshing
+
+    def _edit_selected(self):
+        """Open edit dialog for the selected driver."""
+        selected = self.table.selectedItems()
+        if not selected:
+            QMessageBox.information(self, "No Selection", "Please select a driver to edit.")
+            return
+        row = selected[0].row()
+        driver_id = self.table.item(row, 0).data(Qt.UserRole)
+        self.edit_driver_requested.emit(driver_id)
+
+    def _delete_selected(self):
+        """Soft‑delete the selected driver after confirmation."""
+        selected = self.table.selectedItems()
+        if not selected:
+            QMessageBox.information(self, "No Selection", "Please select a driver to delete.")
+            return
+        row = selected[0].row()
+        driver_id = self.table.item(row, 0).data(Qt.UserRole)
+        driver_name = self.table.item(row, 0).text()
+        reply = QMessageBox.question(
+            self,
+            "Confirm Delete",
+            f"Are you sure you want to delete driver '{driver_name}'?",
+            QMessageBox.Yes | QMessageBox.No,
+            QMessageBox.No,
+        )
+        if reply == QMessageBox.Yes:
+            try:
+                self.driver_repo.soft_delete(driver_id)
+                self.load_data()
+            except ValueError as e:
+                QMessageBox.warning(self, "Error", str(e))
 
     def _filter_table(self, text):
+        """Filter rows by driver name."""
         for row in range(self.table.rowCount()):
             item = self.table.item(row, 0)
             if item and text.lower() in item.text().lower():

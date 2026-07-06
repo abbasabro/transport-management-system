@@ -1,27 +1,29 @@
 from PySide6.QtWidgets import (
-    QWidget, QVBoxLayout, QHBoxLayout, QTableWidget, QTableWidgetItem,
-    QHeaderView, QAbstractItemView, QLabel, QPushButton
+    QWidget, QVBoxLayout, QHBoxLayout, QPushButton,
+    QTableWidget, QTableWidgetItem, QHeaderView, QLabel, QAbstractItemView
 )
-from PySide6.QtCore import Signal, Qt
+from PySide6.QtCore import Qt, Signal
 from PySide6.QtGui import QIcon, QFont
+
+from database.repositories.vehicle_repository import VehicleRepository
+from database.repositories.driver_repository import DriverRepository
 
 
 class AllLogsPage(QWidget):
-    """Displays all vehicles with basic info; clicking reg number opens logs dialog."""
-    vehicle_log_requested = Signal(str)   # vehicle registration number
+    """
+    Displays all vehicles with basic info and assigned driver.
+    Clicking a vehicle opens its log history in a popup dialog.
+    """
+
+    vehicle_log_requested = Signal(int)  # vehicle_id
     back_requested = Signal()
 
-    DUMMY_DATA = [
-        ["LES-1234", "Bus", "Ahmed Khan"],
-        ["LEA-5678", "Van", "Bilal Saeed"],
-        ["RIG-9901", "Truck", "Kamran Ali"],
-        ["ABC-111", "Car", "Sara Bibi"],
-    ]
-
-    def __init__(self):
+    def __init__(self, vehicle_repo: VehicleRepository, driver_repo: DriverRepository):
         super().__init__()
+        self.vehicle_repo = vehicle_repo
+        self.driver_repo = driver_repo
         self._setup_ui()
-        self._load_data()
+        self.load_data()
 
     def _setup_ui(self):
         layout = QVBoxLayout(self)
@@ -43,24 +45,46 @@ class AllLogsPage(QWidget):
         top_layout.addStretch()
         layout.addLayout(top_layout)
 
-        # Table (no search needed)
+        # Table with three columns
         self.table = QTableWidget()
         self.table.setColumnCount(3)
-        self.table.setHorizontalHeaderLabels(["Registration Number", "Vehicle Type", "Driver Name"])
+        self.table.setHorizontalHeaderLabels([
+            "Registration Number", "Vehicle Type", "Driver Name"
+        ])
         self.table.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
-        self.table.setEditTriggers(QTableWidget.NoEditTriggers)
-        self.table.setSelectionBehavior(QTableWidget.SelectRows)
+        self.table.setEditTriggers(QAbstractItemView.NoEditTriggers)
+        self.table.setSelectionBehavior(QAbstractItemView.SelectRows)
         self.table.setSelectionMode(QAbstractItemView.SingleSelection)
-        self.table.cellClicked.connect(self._on_cell_clicked)
+        self.table.cellClicked.connect(self._on_vehicle_clicked)
         layout.addWidget(self.table)
 
-    def _load_data(self):
-        self.table.setRowCount(len(self.DUMMY_DATA))
-        for row_idx, row_data in enumerate(self.DUMMY_DATA):
-            for col_idx, value in enumerate(row_data):
-                self.table.setItem(row_idx, col_idx, QTableWidgetItem(value))
+    def load_data(self):
+        """Load all vehicles with their assigned driver names."""
+        try:
+            vehicles = self.vehicle_repo.get_all_active()
+            self._populate_table(vehicles)
+        except Exception:
+            self.table.setRowCount(0)
 
-    def _on_cell_clicked(self, row, col):
-        # Emit signal regardless of column, but only use registration number
-        reg = self.table.item(row, 0).text()
-        self.vehicle_log_requested.emit(reg)
+    def _populate_table(self, vehicles):
+        self.table.setRowCount(len(vehicles))
+        for row, v in enumerate(vehicles):
+            # Registration Number
+            reg_item = QTableWidgetItem(v["registration_number"])
+            reg_item.setData(Qt.UserRole, v["id"])  # store vehicle id
+            self.table.setItem(row, 0, reg_item)
+
+            # Vehicle Type
+            type_item = QTableWidgetItem(v.get("vehicle_type", ""))
+            self.table.setItem(row, 1, type_item)
+
+            # Driver Name – fetch from driver repository
+            driver = self.driver_repo.get_driver_by_vehicle(v["id"])
+            driver_name = driver["name"] if driver else "Not Assigned"
+            driver_item = QTableWidgetItem(driver_name)
+            self.table.setItem(row, 2, driver_item)
+
+    def _on_vehicle_clicked(self, row, col):
+        """Emit signal with vehicle ID when a row is clicked."""
+        vehicle_id = self.table.item(row, 0).data(Qt.UserRole)
+        self.vehicle_log_requested.emit(vehicle_id)
