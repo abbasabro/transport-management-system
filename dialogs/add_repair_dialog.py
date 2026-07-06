@@ -18,7 +18,7 @@ class AddRepairDialog(QDialog):
         repair_repo: RepairRepository,
         vehicle_repo: VehicleRepository,
         parent=None,
-        repair_data: dict or None = None,
+        repair_data = None,
     ):
         super().__init__(parent)
         self.repair_repo = repair_repo

@@ -18,7 +18,7 @@ class AddDriverDialog(QDialog):
         driver_repo: DriverRepository,
         vehicle_repo: VehicleRepository,
         parent=None,
-        driver_data: dict or None = None,
+        driver_data = None,
     ):
         super().__init__(parent)
         self.driver_repo = driver_repo
