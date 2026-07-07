@@ -47,7 +47,7 @@ class AddVehicleDialog(QDialog):
 
         # Fuel Type
         self.fuel_combo = QComboBox()
-        self.fuel_combo.addItems(["Petrol","Super Petrol", "Diesel", "CNG", "Electric"])
+        self.fuel_combo.addItems(["Petrol","Super-Petrol", "Diesel", "CNG", "Electric"])
         form.addRow("Fuel Type:", self.fuel_combo)
 
         layout.addLayout(form)
