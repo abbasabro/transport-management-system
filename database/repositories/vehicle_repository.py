@@ -20,12 +20,12 @@ class VehicleRepository:
         cursor = self.db.conn.cursor()
         cursor.execute(
             """
-            SELECT v.id, v.uuid, v.registration_number, vt.name AS vehicle_type,
-                   v.model, v.engine_number, v.chassis_number, v.fuel_type, v.status
-            FROM vehicles v
-            JOIN vehicle_types vt ON v.vehicle_type_id = vt.id
-            WHERE v.is_deleted = 0
-            ORDER BY v.registration_number
+              SELECT v.id, v.uuid, v.registration_number, vt.name AS vehicle_type,
+           v.model, v.engine_number, v.chassis_number, v.fuel_type
+    FROM vehicles v
+    JOIN vehicle_types vt ON v.vehicle_type_id = vt.id
+    WHERE v.is_deleted = 0
+    ORDER BY v.registration_number
             """
         )
         return [dict(row) for row in cursor.fetchall()]
@@ -66,8 +66,8 @@ class VehicleRepository:
                 """
                 INSERT INTO vehicles (
                     uuid, registration_number, vehicle_type_id, model,
-                    engine_number, chassis_number, fuel_type, status, created_at
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, 'Active', ?)
+                    engine_number, chassis_number, fuel_type, created_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
                     new_uuid,
@@ -99,7 +99,6 @@ class VehicleRepository:
         engine_number: str,
         chassis_number: str,
         fuel_type: str,
-        status: str,
     ) -> bool:
         now = datetime.now().isoformat()
         cursor = self.db.conn.cursor()
@@ -108,8 +107,7 @@ class VehicleRepository:
                 """
                 UPDATE vehicles
                 SET registration_number = ?, vehicle_type_id = ?, model = ?,
-                    engine_number = ?, chassis_number = ?, fuel_type = ?,
-                    status = ?, updated_at = ?
+                    engine_number = ?, chassis_number = ?, fuel_type = ?, updated_at = ?
                 WHERE id = ?
                 """,
                 (
@@ -119,7 +117,6 @@ class VehicleRepository:
                     engine_number,
                     chassis_number,
                     fuel_type,
-                    status,
                     now,
                     vehicle_id,
                 ),
