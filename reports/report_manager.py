@@ -39,7 +39,7 @@ class ReportManager:
     def generate_vehicle_log_report(
         self, vehicle_id: int, from_date: str, to_date: str, fuel_consumed: str
     ):
-        """Generate a Vehicle Log Report for the given vehicle and date range."""
+        """Generate a Vehicle Log Report, pre‑filling the filename with vehicle details."""
         # Validate fuel input
         try:
             fuel_val = float(fuel_consumed)
@@ -52,7 +52,15 @@ class ReportManager:
             )
             return
 
-        path = self._get_save_path("Vehicle_Log_Report.pdf")
+        # Build suggested filename from registration number and dates
+        vehicle = self.vehicle_repo.get_by_id(vehicle_id)
+        if vehicle:
+            reg = vehicle["registration_number"]
+            suggested = f"{reg}_{from_date}_{to_date}.pdf"
+        else:
+            suggested = "Vehicle_Log_Report.pdf"
+
+        path = self._get_save_path(suggested)
         if not path:
             return
 

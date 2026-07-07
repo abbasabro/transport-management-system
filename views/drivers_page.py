@@ -11,10 +11,11 @@ from database.repositories.vehicle_repository import VehicleRepository
 
 
 class DriversPage(QWidget):
-    """Drivers management page with table, search, add, edit, and back button."""
+    """Drivers management page with table, search, add, edit, delete, and PDF download."""
 
     add_driver_clicked = Signal()
-    edit_driver_requested = Signal(int)  # driver_id
+    edit_driver_requested = Signal(int)          # driver_id
+    download_driver_report_clicked = Signal()    # new signal for PDF
     back_requested = Signal()
 
     def __init__(self, driver_repo: DriverRepository, vehicle_repo: VehicleRepository):
@@ -65,6 +66,13 @@ class DriversPage(QWidget):
         self.delete_btn.setIcon(QIcon.fromTheme("edit-delete"))
         self.delete_btn.clicked.connect(self._delete_selected)
         toolbar.addWidget(self.delete_btn)
+
+        # NEW: Download PDF button
+        self.download_btn = QPushButton("Download Driver List")
+        self.download_btn.setIcon(QIcon.fromTheme("document-print"))
+        self.download_btn.clicked.connect(self.download_driver_report_clicked.emit)
+        toolbar.addWidget(self.download_btn)
+
         layout.addLayout(toolbar)
 
         # Bottom: table
@@ -75,11 +83,9 @@ class DriversPage(QWidget):
             "Contact Number", "CNIC", "Route"
         ])
         self.table.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
-        # Allow editing only on Route column (index 5)
         self.table.setEditTriggers(QAbstractItemView.DoubleClicked | QAbstractItemView.EditKeyPressed)
         self.table.setSelectionBehavior(QAbstractItemView.SelectRows)
         self.table.setSelectionMode(QAbstractItemView.SingleSelection)
-        # Connect cell change to update route in DB
         self.table.itemChanged.connect(self._on_item_changed)
         layout.addWidget(self.table)
 
@@ -92,11 +98,11 @@ class DriversPage(QWidget):
             self.table.setRowCount(0)
 
     def _populate_table(self, drivers):
-        """Fill table with driver data, temporarily blocking itemChanged signal."""
+        """Fill table with driver data."""
         self.table.blockSignals(True)
         self.table.setRowCount(len(drivers))
         for row, d in enumerate(drivers):
-            # Store driver id in first column's UserRole
+            # Name column (stores driver id)
             name_item = QTableWidgetItem(d["name"])
             name_item.setData(Qt.UserRole, d["id"])
             name_item.setFlags(name_item.flags() & ~Qt.ItemIsEditable)
@@ -106,8 +112,12 @@ class DriversPage(QWidget):
             desig_item.setFlags(desig_item.flags() & ~Qt.ItemIsEditable)
             self.table.setItem(row, 1, desig_item)
 
-            # Vehicle column (read-only, shows registration number)
-            veh_item = QTableWidgetItem(d.get("vehicle_reg", "Not Assigned"))
+            # Vehicle column: show registration or "Spare Driver"
+            if d.get("assigned_vehicle_id") is None:
+                veh_text = "Spare Driver"
+            else:
+                veh_text = d.get("vehicle_reg", "Not Assigned")
+            veh_item = QTableWidgetItem(veh_text)
             veh_item.setFlags(veh_item.flags() & ~Qt.ItemIsEditable)
             self.table.setItem(row, 2, veh_item)
 
@@ -126,18 +136,16 @@ class DriversPage(QWidget):
         self.table.blockSignals(False)
 
     def _on_item_changed(self, item):
-        """Called when the user edits the Route column inline."""
+        """Called when the Route column is edited inline."""
         if item.column() != 5:
             return
         driver_id = self.table.item(item.row(), 0).data(Qt.UserRole)
         new_route = item.text().strip()
         try:
-            # We need the full driver data to update only route.
-            # Fetch current driver, then update with same fields, new route.
             driver = self.driver_repo.get_by_id(driver_id)
             if driver is None:
                 QMessageBox.warning(self, "Error", "Driver not found.")
-                self.load_data()  # refresh
+                self.load_data()
                 return
             self.driver_repo.update(
                 driver_id=driver_id,
@@ -150,10 +158,9 @@ class DriversPage(QWidget):
             )
         except ValueError as e:
             QMessageBox.warning(self, "Update Failed", str(e))
-            self.load_data()  # revert changes by refreshing
+            self.load_data()
 
     def _edit_selected(self):
-        """Open edit dialog for the selected driver."""
         selected = self.table.selectedItems()
         if not selected:
             QMessageBox.information(self, "No Selection", "Please select a driver to edit.")
@@ -163,7 +170,6 @@ class DriversPage(QWidget):
         self.edit_driver_requested.emit(driver_id)
 
     def _delete_selected(self):
-        """Soft‑delete the selected driver after confirmation."""
         selected = self.table.selectedItems()
         if not selected:
             QMessageBox.information(self, "No Selection", "Please select a driver to delete.")
@@ -186,7 +192,6 @@ class DriversPage(QWidget):
                 QMessageBox.warning(self, "Error", str(e))
 
     def _filter_table(self, text):
-        """Filter rows by driver name."""
         for row in range(self.table.rowCount()):
             item = self.table.item(row, 0)
             if item and text.lower() in item.text().lower():
