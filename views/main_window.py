@@ -17,6 +17,7 @@ from dialogs.add_log_dialog import AddLogDialog
 from dialogs.add_repair_dialog import AddRepairDialog
 from dialogs.vehicle_logs_dialog import VehicleLogsDialog
 from dialogs.add_vehicle_type_dialog import AddVehicleTypeDialog
+from reports.report_manager import ReportManager
 
 from database.repositories.vehicle_repository import VehicleRepository
 from database.repositories.driver_repository import DriverRepository
@@ -45,7 +46,9 @@ class MainWindow(QMainWindow):
         # Central stacked widget
         self.stack = QStackedWidget()
         self.setCentralWidget(self.stack)
+        self.report_manager = ReportManager(self, self.vehicle_repo, self.driver_repo, self.log_repo, self.repair_repo)
 
+        
         # ------------------ Pages ------------------
         self.dashboard_page = DashboardPage(self.vehicle_repo, self.driver_repo)
         self.vehicles_page = VehiclesPage(self.vehicle_repo)
@@ -53,7 +56,7 @@ class MainWindow(QMainWindow):
         self.logs_page = LogsPage(self.vehicle_repo)
         self.all_logs_page = AllLogsPage(self.vehicle_repo, self.driver_repo)  # FIXED: using driver_repo
         self.repairs_page = RepairsPage(self.repair_repo, self.vehicle_repo)
-        self.reports_page = ReportsPage()
+        self.reports_page = ReportsPage(self.vehicle_repo, self.report_manager)
 
         # Add pages to stack (order follows navigation)
         self.stack.addWidget(self.dashboard_page)   # index 0
