@@ -36,14 +36,14 @@ class DriverRepository:
                 raise Exception("Vehicle already assigned to another driver.")
             raise e
 
-    def update(self, driver_id, name, designation, contact_number,  assigned_vehicle_id, assigned_route):
+    def update(self, driver_id, name, cnic ,designation, contact_number,  assigned_vehicle_id, assigned_route):
         now = datetime.now().isoformat()
         cursor = self.db.conn.cursor()
         try:
             cursor.execute("""
-                UPDATE drivers SET name=?, designation=?, contact_number=?,  assigned_vehicle_id=?, assigned_route=?, updated_at=?
+                UPDATE drivers SET name=?, cnic=?, designation=?, contact_number=?,  assigned_vehicle_id=?, assigned_route=?, updated_at=?
                 WHERE id=?
-            """, (name, designation, contact_number,  assigned_vehicle_id, assigned_route, now, driver_id))
+            """, (name, cnic, designation, contact_number,  assigned_vehicle_id, assigned_route, now, driver_id))
             self.db.conn.commit()
         except sqlite3.IntegrityError as e:
             if "UNIQUE constraint failed: drivers.cnic" in str(e):
