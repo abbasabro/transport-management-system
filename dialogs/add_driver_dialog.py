@@ -1,8 +1,7 @@
 from PySide6.QtWidgets import (
     QDialog, QVBoxLayout, QFormLayout, QLineEdit, QComboBox,
-    QDialogButtonBox, QMessageBox
+    QCheckBox, QDialogButtonBox, QMessageBox
 )
-from PySide6.QtCore import Qt
 from database.repositories.driver_repository import DriverRepository
 from database.repositories.vehicle_repository import VehicleRepository
 
@@ -10,7 +9,7 @@ from database.repositories.vehicle_repository import VehicleRepository
 class AddDriverDialog(QDialog):
     """
     Dialog for adding or editing a driver.
-    If driver_data is provided, the dialog operates in edit mode and pre‑fills the fields.
+    Includes a 'Spare Driver' checkbox that disables vehicle selection.
     """
 
     def __init__(
@@ -18,12 +17,12 @@ class AddDriverDialog(QDialog):
         driver_repo: DriverRepository,
         vehicle_repo: VehicleRepository,
         parent=None,
-        driver_data = None,
+        driver_data= None,
     ):
         super().__init__(parent)
         self.driver_repo = driver_repo
         self.vehicle_repo = vehicle_repo
-        self.driver_data = driver_data  # None for add, dict for edit
+        self.driver_data = driver_data
         self.edit_mode = driver_data is not None
 
         self.setWindowTitle("Edit Driver" if self.edit_mode else "Add Driver")
@@ -31,6 +30,8 @@ class AddDriverDialog(QDialog):
         self._setup_ui()
         if self.edit_mode:
             self._populate_fields()
+        # Initial state: if spare is checked, disable vehicle combo
+        self._toggle_vehicle_combo()
 
     def _setup_ui(self):
         layout = QVBoxLayout(self)
@@ -52,16 +53,20 @@ class AddDriverDialog(QDialog):
         self.cnic_edit = QLineEdit()
         form.addRow("CNIC:", self.cnic_edit)
 
+        # Spare Driver checkbox
+        self.spare_checkbox = QCheckBox("Spare Driver")
+        self.spare_checkbox.toggled.connect(self._toggle_vehicle_combo)
+        form.addRow("", self.spare_checkbox)
+
         # Vehicle assignment
         self.vehicle_combo = QComboBox()
-        self.vehicle_combo.addItem("None", None)  # allow unassigned
-        # Load active vehicles
+        self.vehicle_combo.addItem("None", None)  # allow unassigned (for spare)
         try:
             vehicles = self.vehicle_repo.get_all_active()
             for v in vehicles:
                 self.vehicle_combo.addItem(v["registration_number"], v["id"])
         except Exception:
-            pass  # keep only "None" if loading fails
+            pass
         form.addRow("Assigned Vehicle:", self.vehicle_combo)
 
         # Route
@@ -70,14 +75,20 @@ class AddDriverDialog(QDialog):
 
         layout.addLayout(form)
 
-        # Buttons
         buttons = QDialogButtonBox(QDialogButtonBox.Save | QDialogButtonBox.Cancel)
         buttons.accepted.connect(self._save)
         buttons.rejected.connect(self.reject)
         layout.addWidget(buttons)
 
+    def _toggle_vehicle_combo(self):
+        """Enable/disable vehicle combo based on spare checkbox."""
+        is_spare = self.spare_checkbox.isChecked()
+        self.vehicle_combo.setEnabled(not is_spare)
+        if is_spare:
+            self.vehicle_combo.setCurrentIndex(0)  # reset to None
+
     def _populate_fields(self):
-        """Fill fields with existing driver data."""
+        """Pre‑fill fields with existing driver data."""
         d = self.driver_data
         self.name_edit.setText(d.get("name", ""))
         self.designation_edit.setText(d.get("designation", ""))
@@ -85,35 +96,40 @@ class AddDriverDialog(QDialog):
         self.cnic_edit.setText(d.get("cnic", ""))
         self.route_edit.setText(d.get("assigned_route", ""))
 
-        # Set vehicle combo to the current assignment
+        # Spare checkbox: checked if no vehicle assigned
+        is_spare = d.get("assigned_vehicle_id") is None
+        self.spare_checkbox.setChecked(is_spare)
+
+        # Vehicle combo
         assigned_id = d.get("assigned_vehicle_id")
         if assigned_id is not None:
             idx = self.vehicle_combo.findData(assigned_id)
             if idx >= 0:
                 self.vehicle_combo.setCurrentIndex(idx)
+        else:
+            self.vehicle_combo.setCurrentIndex(0)  # None
 
     def _save(self):
-        """Validate input and call the repository to add or update."""
+        """Validate input and call repository."""
         name = self.name_edit.text().strip()
         designation = self.designation_edit.text().strip()
         contact = self.contact_edit.text().strip()
         cnic = self.cnic_edit.text().strip()
-        assigned_vehicle_id = self.vehicle_combo.currentData()
         route = self.route_edit.text().strip()
 
         # Basic validation
-        if not name:
-            QMessageBox.warning(self, "Validation Error", "Driver name is required.")
-            self.name_edit.setFocus()
+        if not name or not designation or not cnic:
+            QMessageBox.warning(self, "Validation Error", "Name, Designation and CNIC are required.")
             return
-        if not designation:
-            QMessageBox.warning(self, "Validation Error", "Designation is required.")
-            self.designation_edit.setFocus()
-            return
-        if not cnic:
-            QMessageBox.warning(self, "Validation Error", "CNIC is required.")
-            self.cnic_edit.setFocus()
-            return
+
+        if self.spare_checkbox.isChecked():
+            assigned_vehicle_id = None
+        else:
+            if self.vehicle_combo.currentData() is None:
+                QMessageBox.warning(self, "Validation Error",
+                                    "Please select a vehicle or mark as Spare Driver.")
+                return
+            assigned_vehicle_id = self.vehicle_combo.currentData()
 
         try:
             if self.edit_mode:
@@ -137,4 +153,4 @@ class AddDriverDialog(QDialog):
                 )
             self.accept()
         except ValueError as e:
-            QMessageBox.warning(self, "Error", str(e))
+            QMessageBox.warning(self, "Database Error", str(e))

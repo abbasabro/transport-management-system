@@ -10,6 +10,7 @@ from views.logs_page import LogsPage
 from views.repairs_page import RepairsPage
 from views.reports_page import ReportsPage
 from views.all_logs_page import AllLogsPage
+from views.settings_page import SettingsPage  # new
 
 from dialogs.add_vehicle_dialog import AddVehicleDialog
 from dialogs.add_driver_dialog import AddDriverDialog
@@ -17,16 +18,18 @@ from dialogs.add_log_dialog import AddLogDialog
 from dialogs.add_repair_dialog import AddRepairDialog
 from dialogs.vehicle_logs_dialog import VehicleLogsDialog
 from dialogs.add_vehicle_type_dialog import AddVehicleTypeDialog
+
 from reports.report_manager import ReportManager
 
 from database.repositories.vehicle_repository import VehicleRepository
 from database.repositories.driver_repository import DriverRepository
 from database.repositories.daily_log_repository import DailyLogRepository
 from database.repositories.repair_repository import RepairRepository
+from database.repositories.user_repository import UserRepository  # for settings
 
 
 class MainWindow(QMainWindow):
-    """Main application window with database‑backed pages."""
+    """Main application window with all modules integrated, including Settings."""
 
     def __init__(self, db, user):
         super().__init__()
@@ -38,6 +41,13 @@ class MainWindow(QMainWindow):
         self.driver_repo = DriverRepository(db)
         self.log_repo = DailyLogRepository(db)
         self.repair_repo = RepairRepository(db)
+        self.user_repo = UserRepository(db)          # for settings page
+
+        # ------------------ Report Manager ------------------
+        self.report_manager = ReportManager(
+            self, self.vehicle_repo, self.driver_repo,
+            self.log_repo, self.repair_repo
+        )
 
         # ------------------ Window setup ------------------
         self.setWindowTitle("BBSTUD Transport Management System")
@@ -46,33 +56,32 @@ class MainWindow(QMainWindow):
         # Central stacked widget
         self.stack = QStackedWidget()
         self.setCentralWidget(self.stack)
-        self.report_manager = ReportManager(self, self.vehicle_repo, self.driver_repo, self.log_repo, self.repair_repo)
 
-        
         # ------------------ Pages ------------------
         self.dashboard_page = DashboardPage(self.vehicle_repo, self.driver_repo)
         self.vehicles_page = VehiclesPage(self.vehicle_repo)
         self.drivers_page = DriversPage(self.driver_repo, self.vehicle_repo)
         self.logs_page = LogsPage(self.vehicle_repo)
-        self.all_logs_page = AllLogsPage(self.vehicle_repo, self.driver_repo)  # FIXED: using driver_repo
+        self.all_logs_page = AllLogsPage(self.vehicle_repo, self.driver_repo)
         self.repairs_page = RepairsPage(self.repair_repo, self.vehicle_repo)
         self.reports_page = ReportsPage(self.vehicle_repo, self.report_manager)
+        self.settings_page = SettingsPage(self.user_repo, self.user)  # new
 
         # Add pages to stack (order follows navigation)
-        self.stack.addWidget(self.dashboard_page)   # index 0
-        self.stack.addWidget(self.vehicles_page)    # index 1
-        self.stack.addWidget(self.drivers_page)     # index 2
-        self.stack.addWidget(self.logs_page)        # index 3
-        self.stack.addWidget(self.all_logs_page)    # index 4
-        self.stack.addWidget(self.repairs_page)     # index 5
-        self.stack.addWidget(self.reports_page)     # index 6
+        self.stack.addWidget(self.dashboard_page)   # 0
+        self.stack.addWidget(self.vehicles_page)    # 1
+        self.stack.addWidget(self.drivers_page)     # 2
+        self.stack.addWidget(self.logs_page)        # 3
+        self.stack.addWidget(self.all_logs_page)    # 4
+        self.stack.addWidget(self.repairs_page)     # 5
+        self.stack.addWidget(self.reports_page)     # 6
+        self.stack.addWidget(self.settings_page)    # 7 (new)
 
         self._setup_menu_bar()
         self._setup_status_bar()
         self._connect_dashboard_signals()
         self._connect_page_signals()
 
-        # Show dashboard initially
         self.stack.setCurrentWidget(self.dashboard_page)
 
     # ------------------------------------------------------------------
@@ -126,6 +135,12 @@ class MainWindow(QMainWindow):
         reports_action.triggered.connect(lambda: self.stack.setCurrentWidget(self.reports_page))
         reports_menu.addAction(reports_action)
 
+        # Settings (new)
+        settings_menu = menubar.addMenu("Settings")
+        settings_action = QAction(QIcon.fromTheme("configure"), "Settings", self)
+        settings_action.triggered.connect(lambda: self.stack.setCurrentWidget(self.settings_page))
+        settings_menu.addAction(settings_action)
+
         # Exit
         exit_menu = menubar.addMenu("Exit")
         exit_action = QAction(QIcon.fromTheme("application-exit"), "Exit Application", self)
@@ -143,7 +158,7 @@ class MainWindow(QMainWindow):
         )
 
     # ------------------------------------------------------------------
-    # Signal connections
+    # Dashboard signal connections (added settings)
     # ------------------------------------------------------------------
     def _connect_dashboard_signals(self):
         dash = self.dashboard_page
@@ -155,7 +170,11 @@ class MainWindow(QMainWindow):
         dash.repairs_clicked.connect(lambda: self.stack.setCurrentWidget(self.repairs_page))
         dash.reports_clicked.connect(lambda: self.stack.setCurrentWidget(self.reports_page))
         dash.all_logs_clicked.connect(lambda: self.stack.setCurrentWidget(self.all_logs_page))
+        dash.settings_clicked.connect(lambda: self.stack.setCurrentWidget(self.settings_page))  # new
 
+    # ------------------------------------------------------------------
+    # Page signal connections (back buttons, downloads, edits)
+    # ------------------------------------------------------------------
     def _connect_page_signals(self):
         # Back buttons
         self.vehicles_page.back_requested.connect(self._go_to_dashboard)
@@ -164,6 +183,7 @@ class MainWindow(QMainWindow):
         self.all_logs_page.back_requested.connect(self._go_to_dashboard)
         self.repairs_page.back_requested.connect(self._go_to_dashboard)
         self.reports_page.back_requested.connect(self._go_to_dashboard)
+        self.settings_page.back_requested.connect(self._go_to_dashboard)  # new
 
         # Add dialogs from pages
         self.vehicles_page.add_vehicle_clicked.connect(self.open_add_vehicle_dialog)
@@ -171,15 +191,24 @@ class MainWindow(QMainWindow):
         self.drivers_page.edit_driver_requested.connect(self.open_edit_driver_dialog)
         self.logs_page.add_log_requested.connect(self.open_add_log_dialog)
         self.repairs_page.add_repair_clicked.connect(self.open_add_repair_dialog)
-        self.repairs_page.edit_repair_requested.connect(self.open_edit_repair_dialog)  # NEW
+        self.repairs_page.edit_repair_requested.connect(self.open_edit_repair_dialog)
         self.all_logs_page.vehicle_log_requested.connect(self.open_vehicle_logs_dialog)
+
+        # New connections for vehicle editing and downloads
+        self.vehicles_page.edit_vehicle_requested.connect(self.open_edit_vehicle_dialog)
+        self.vehicles_page.download_vehicle_list_clicked.connect(
+            self.report_manager.generate_vehicle_list_report
+        )
+        self.drivers_page.download_driver_report_clicked.connect(
+            self.report_manager.generate_driver_report
+        )
 
     def _go_to_dashboard(self):
         self.dashboard_page.refresh()
         self.stack.setCurrentWidget(self.dashboard_page)
 
     # ------------------------------------------------------------------
-    # Dialog openers
+    # Dialog openers (existing + new edit vehicle)
     # ------------------------------------------------------------------
     def open_add_vehicle_dialog(self):
         dialog = AddVehicleDialog(self.vehicle_repo, self)
@@ -198,9 +227,11 @@ class MainWindow(QMainWindow):
     def open_edit_driver_dialog(self, driver_id):
         driver = self.driver_repo.get_by_id(driver_id)
         if not driver:
-            QMessageBox.warning(self, "Error", "Driver not found or already deleted.")
+            QMessageBox.warning(self, "Error", "Driver not found.")
             return
-        dialog = AddDriverDialog(self.driver_repo, self.vehicle_repo, self, driver_data=driver)
+        dialog = AddDriverDialog(
+            self.driver_repo, self.vehicle_repo, self, driver_data=driver
+        )
         if dialog.exec():
             self.drivers_page.load_data()
             self.dashboard_page.refresh()
@@ -226,10 +257,9 @@ class MainWindow(QMainWindow):
             QMessageBox.information(self, "Success", "Repair record saved.")
 
     def open_edit_repair_dialog(self, repair_id):
-        """Opens the repair dialog pre‑filled for editing."""
         repair = self.repair_repo.get_by_id(repair_id)
         if not repair:
-            QMessageBox.warning(self, "Error", "Repair not found or already deleted.")
+            QMessageBox.warning(self, "Error", "Repair not found.")
             return
         dialog = AddRepairDialog(
             self.repair_repo, self.vehicle_repo, self, repair_data=repair
@@ -246,3 +276,14 @@ class MainWindow(QMainWindow):
         dialog = AddVehicleTypeDialog(self.vehicle_repo, self)
         if dialog.exec():
             QMessageBox.information(self, "Success", "Vehicle type added.")
+
+    def open_edit_vehicle_dialog(self, vehicle_id):
+        vehicle = self.vehicle_repo.get_by_id(vehicle_id)
+        if not vehicle:
+            QMessageBox.warning(self, "Error", "Vehicle not found.")
+            return
+        dialog = AddVehicleDialog(self.vehicle_repo, self, vehicle_data=vehicle)
+        if dialog.exec():
+            self.vehicles_page.load_data()
+            self.dashboard_page.refresh()
+            QMessageBox.information(self, "Success", "Vehicle updated successfully.")

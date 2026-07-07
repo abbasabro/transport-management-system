@@ -9,9 +9,8 @@ from database.repositories.driver_repository import DriverRepository
 
 
 class DashboardPage(QWidget):
-    """Dashboard with live summary cards and quick action buttons."""
+    """Dashboard with live summary cards and quick action buttons, now including Settings."""
 
-    # Signals
     add_vehicle_clicked = Signal()
     add_driver_clicked = Signal()
     logs_clicked = Signal()
@@ -20,6 +19,7 @@ class DashboardPage(QWidget):
     repairs_clicked = Signal()
     reports_clicked = Signal()
     all_logs_clicked = Signal()
+    settings_clicked = Signal()                # NEW
 
     PRIMARY_BLUE = "#1A56DB"
     GOLD = "#F2A900"
@@ -104,6 +104,10 @@ class DashboardPage(QWidget):
         btn_reports.clicked.connect(self.reports_clicked.emit)
         buttons_grid3.addWidget(btn_reports)
 
+        btn_settings = self._create_action_button("Settings", "configure")   # NEW
+        btn_settings.clicked.connect(self.settings_clicked.emit)
+        buttons_grid3.addWidget(btn_settings)
+
         main_layout.addLayout(buttons_grid3)
         main_layout.addStretch()
 
@@ -119,10 +123,6 @@ class DashboardPage(QWidget):
             self.driver_value_label.setText("?")
 
     def _create_stat_card(self, title: str) -> tuple[QFrame, QLabel]:
-        """
-        Creates a styled statistic card.
-        Returns the card frame and the value label so we can update it later.
-        """
         card = QFrame()
         card.setFrameShape(QFrame.StyledPanel)
         card.setStyleSheet(f"""
@@ -147,7 +147,6 @@ class DashboardPage(QWidget):
         return card, value_label
 
     def _create_action_button(self, text: str, icon_name: str) -> QPushButton:
-        """Creates a large action button with university colours."""
         btn = QPushButton(text)
         btn.setIcon(QIcon.fromTheme(icon_name))
         btn.setIconSize(QSize(32, 32))
