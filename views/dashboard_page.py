@@ -6,11 +6,13 @@ from PySide6.QtGui import QFont, QIcon
 
 from database.repositories.vehicle_repository import VehicleRepository
 from database.repositories.driver_repository import DriverRepository
+from security.permissions import PermissionManager
 
 
 class DashboardPage(QWidget):
-    """Dashboard with live summary cards and quick action buttons, now including Settings."""
+    """Dashboard with live summary cards and role‑based action buttons."""
 
+    # Signals – only created if the corresponding button exists
     add_vehicle_clicked = Signal()
     add_driver_clicked = Signal()
     logs_clicked = Signal()
@@ -19,15 +21,21 @@ class DashboardPage(QWidget):
     repairs_clicked = Signal()
     reports_clicked = Signal()
     all_logs_clicked = Signal()
-    settings_clicked = Signal()                # NEW
+    settings_clicked = Signal()
 
     PRIMARY_BLUE = "#1A56DB"
     GOLD = "#F2A900"
 
-    def __init__(self, vehicle_repo: VehicleRepository, driver_repo: DriverRepository):
+    def __init__(
+        self,
+        vehicle_repo: VehicleRepository,
+        driver_repo: DriverRepository,
+        perm_manager: PermissionManager,
+    ):
         super().__init__()
         self.vehicle_repo = vehicle_repo
         self.driver_repo = driver_repo
+        self.perm = perm_manager
         self._setup_ui()
         self.refresh()
 
@@ -56,59 +64,49 @@ class DashboardPage(QWidget):
         main_layout.addLayout(cards_layout)
         main_layout.addSpacing(30)
 
-        # Quick Actions
+        # Quick Actions title
         main_layout.addWidget(QLabel("Quick Actions", font=QFont("Segoe UI", 14, QFont.Bold)))
 
-        buttons_grid1 = QHBoxLayout()
-        buttons_grid1.setSpacing(20)
+        # Define all possible buttons with their permission and signal names
+        all_buttons = [
+            ("Add Vehicle", "list-add", "vehicle.add", "add_vehicle_clicked"),
+            ("Add Driver", "list-add", "driver.add", "add_driver_clicked"),
+            ("Logs Management", "x-office-spreadsheet", "log.view", "logs_clicked"),
+            ("Vehicles List", "view-list-tree", "vehicle.list_view", "vehicles_list_clicked"),
+            ("Drivers List", "view-list-details", "driver.list_view", "drivers_list_clicked"),
+            ("All Logs", "view-list-tree", "log.view", "all_logs_clicked"),
+            ("Repair Management", "applications-engineering", "repair.list_view", "repairs_clicked"),
+            ("Report Generation", "document-print-preview", "report.generate", "reports_clicked"),
+            ("Settings", "configure", "settings.access", "settings_clicked"),
+        ]
 
-        btn_add_vehicle = self._create_action_button("Add Vehicle", "list-add")
-        btn_add_vehicle.clicked.connect(self.add_vehicle_clicked.emit)
-        buttons_grid1.addWidget(btn_add_vehicle)
+        # Filter and create buttons only if permission is granted
+        button_widgets = []
+        for text, icon_name, perm_key, signal_name in all_buttons:
+            if self.perm.has_permission(perm_key):
+                btn = self._create_action_button(text, icon_name)
+                # Connect the appropriate signal
+                signal = getattr(self, signal_name, None)
+                if signal:
+                    btn.clicked.connect(signal.emit)
+                button_widgets.append(btn)
 
-        btn_add_driver = self._create_action_button("Add Driver", "list-add")
-        btn_add_driver.clicked.connect(self.add_driver_clicked.emit)
-        buttons_grid1.addWidget(btn_add_driver)
+        # Arrange buttons in rows of three
+        row_layouts = []
+        for i in range(0, len(button_widgets), 3):
+            row = QHBoxLayout()
+            row.setSpacing(20)
+            for j in range(3):
+                idx = i + j
+                if idx < len(button_widgets):
+                    row.addWidget(button_widgets[idx])
+                else:
+                    row.addStretch()
+            row_layouts.append(row)
 
-        btn_logs = self._create_action_button("Logs Management", "x-office-spreadsheet")
-        btn_logs.clicked.connect(self.logs_clicked.emit)
-        buttons_grid1.addWidget(btn_logs)
+        for row in row_layouts:
+            main_layout.addLayout(row)
 
-        main_layout.addLayout(buttons_grid1)
-
-        buttons_grid2 = QHBoxLayout()
-        buttons_grid2.setSpacing(20)
-
-        btn_vehicles_list = self._create_action_button("Vehicles List", "view-list-tree")
-        btn_vehicles_list.clicked.connect(self.vehicles_list_clicked.emit)
-        buttons_grid2.addWidget(btn_vehicles_list)
-
-        btn_drivers_list = self._create_action_button("Drivers List", "view-list-details")
-        btn_drivers_list.clicked.connect(self.drivers_list_clicked.emit)
-        buttons_grid2.addWidget(btn_drivers_list)
-
-        btn_all_logs = self._create_action_button("All Logs", "view-list-tree")
-        btn_all_logs.clicked.connect(self.all_logs_clicked.emit)
-        buttons_grid2.addWidget(btn_all_logs)
-
-        main_layout.addLayout(buttons_grid2)
-
-        buttons_grid3 = QHBoxLayout()
-        buttons_grid3.setSpacing(20)
-
-        btn_repairs = self._create_action_button("Repair Management", "applications-engineering")
-        btn_repairs.clicked.connect(self.repairs_clicked.emit)
-        buttons_grid3.addWidget(btn_repairs)
-
-        btn_reports = self._create_action_button("Report Generation", "document-print-preview")
-        btn_reports.clicked.connect(self.reports_clicked.emit)
-        buttons_grid3.addWidget(btn_reports)
-
-        btn_settings = self._create_action_button("Settings", "configure")   # NEW
-        btn_settings.clicked.connect(self.settings_clicked.emit)
-        buttons_grid3.addWidget(btn_settings)
-
-        main_layout.addLayout(buttons_grid3)
         main_layout.addStretch()
 
     def refresh(self):
@@ -118,7 +116,7 @@ class DashboardPage(QWidget):
             drivers = self.driver_repo.get_all_active_with_vehicle()
             self.vehicle_value_label.setText(str(len(vehicles)))
             self.driver_value_label.setText(str(len(drivers)))
-        except Exception as e:
+        except Exception:
             self.vehicle_value_label.setText("?")
             self.driver_value_label.setText("?")
 

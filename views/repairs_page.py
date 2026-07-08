@@ -8,19 +8,26 @@ from PySide6.QtGui import QIcon, QFont
 
 from database.repositories.repair_repository import RepairRepository
 from database.repositories.vehicle_repository import VehicleRepository
+from security.permissions import PermissionManager
 
 
 class RepairsPage(QWidget):
-    """Repair management page with table, search, add, edit, delete."""
+    """Repair management page with role‑based delete visibility."""
 
     add_repair_clicked = Signal()
-    edit_repair_requested = Signal(int)  # repair_id
+    edit_repair_requested = Signal(int)          # repair_id
     back_requested = Signal()
 
-    def __init__(self, repair_repo: RepairRepository, vehicle_repo: VehicleRepository):
+    def __init__(
+        self,
+        repair_repo: RepairRepository,
+        vehicle_repo: VehicleRepository,
+        perm_manager: PermissionManager,
+    ):
         super().__init__()
         self.repair_repo = repair_repo
         self.vehicle_repo = vehicle_repo
+        self.perm = perm_manager
         self._setup_ui()
         self.load_data()
 
@@ -44,27 +51,30 @@ class RepairsPage(QWidget):
         top_layout.addStretch()
         layout.addLayout(top_layout)
 
-        # Middle: search bar + action buttons
+        # Middle: search bar + action buttons (conditionally visible)
         toolbar = QHBoxLayout()
         self.search_edit = QLineEdit()
         self.search_edit.setPlaceholderText("Search by description...")
         self.search_edit.textChanged.connect(self._on_search)
         toolbar.addWidget(self.search_edit)
 
-        self.add_btn = QPushButton("Add Repair")
-        self.add_btn.setIcon(QIcon.fromTheme("list-add"))
-        self.add_btn.clicked.connect(self.add_repair_clicked.emit)
-        toolbar.addWidget(self.add_btn)
+        if self.perm.has_permission("repair.add"):
+            self.add_btn = QPushButton("Add Repair")
+            self.add_btn.setIcon(QIcon.fromTheme("list-add"))
+            self.add_btn.clicked.connect(self.add_repair_clicked.emit)
+            toolbar.addWidget(self.add_btn)
 
-        self.edit_btn = QPushButton("Edit Selected")
-        self.edit_btn.setIcon(QIcon.fromTheme("document-edit"))
-        self.edit_btn.clicked.connect(self._edit_selected)
-        toolbar.addWidget(self.edit_btn)
+        if self.perm.has_permission("repair.update"):
+            self.edit_btn = QPushButton("Edit Selected")
+            self.edit_btn.setIcon(QIcon.fromTheme("document-edit"))
+            self.edit_btn.clicked.connect(self._edit_selected)
+            toolbar.addWidget(self.edit_btn)
 
-        self.delete_btn = QPushButton("Delete Selected")
-        self.delete_btn.setIcon(QIcon.fromTheme("edit-delete"))
-        self.delete_btn.clicked.connect(self._delete_selected)
-        toolbar.addWidget(self.delete_btn)
+        if self.perm.has_permission("repair.delete"):
+            self.delete_btn = QPushButton("Delete Selected")
+            self.delete_btn.setIcon(QIcon.fromTheme("edit-delete"))
+            self.delete_btn.clicked.connect(self._delete_selected)
+            toolbar.addWidget(self.delete_btn)
 
         layout.addLayout(toolbar)
 

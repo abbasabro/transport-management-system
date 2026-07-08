@@ -7,19 +7,21 @@ from PySide6.QtCore import Qt, Signal
 from PySide6.QtGui import QIcon, QFont
 
 from database.repositories.vehicle_repository import VehicleRepository
+from security.permissions import PermissionManager
 
 
 class VehiclesPage(QWidget):
-    """Vehicles management page with search, add, update, delete, and PDF download."""
+    """Vehicles management page with role‑based button visibility."""
 
     add_vehicle_clicked = Signal()
-    edit_vehicle_requested = Signal(int)               # vehicle_id for editing
-    download_vehicle_list_clicked = Signal()           # new signal for PDF
+    edit_vehicle_requested = Signal(int)               # vehicle_id
+    download_vehicle_list_clicked = Signal()           # only if permitted
     back_requested = Signal()
 
-    def __init__(self, vehicle_repo: VehicleRepository):
+    def __init__(self, vehicle_repo: VehicleRepository, perm_manager: PermissionManager):
         super().__init__()
         self.vehicle_repo = vehicle_repo
+        self.perm = perm_manager
         self._setup_ui()
         self.load_data()
 
@@ -43,38 +45,43 @@ class VehiclesPage(QWidget):
         top_layout.addStretch()
         layout.addLayout(top_layout)
 
-        # Middle: search bar + action buttons
+        # Middle: search bar + action buttons (conditionally visible)
         toolbar = QHBoxLayout()
         self.search_edit = QLineEdit()
         self.search_edit.setPlaceholderText("Search by registration number...")
         self.search_edit.textChanged.connect(self._filter_table)
         toolbar.addWidget(self.search_edit)
 
-        self.add_btn = QPushButton("Add Vehicle")
-        self.add_btn.setIcon(QIcon.fromTheme("list-add"))
-        self.add_btn.clicked.connect(self.add_vehicle_clicked.emit)
-        toolbar.addWidget(self.add_btn)
+        # Buttons appear only if permitted
+        if self.perm.has_permission("vehicle.add"):
+            self.add_btn = QPushButton("Add Vehicle")
+            self.add_btn.setIcon(QIcon.fromTheme("list-add"))
+            self.add_btn.clicked.connect(self.add_vehicle_clicked.emit)
+            toolbar.addWidget(self.add_btn)
 
-        self.update_btn = QPushButton("Update Selected")
-        self.update_btn.setIcon(QIcon.fromTheme("document-edit"))
-        self.update_btn.clicked.connect(self._update_selected)
-        toolbar.addWidget(self.update_btn)
+        if self.perm.has_permission("vehicle.update"):
+            self.update_btn = QPushButton("Update Selected")
+            self.update_btn.setIcon(QIcon.fromTheme("document-edit"))
+            self.update_btn.clicked.connect(self._update_selected)
+            toolbar.addWidget(self.update_btn)
 
-        self.delete_btn = QPushButton("Delete Selected")
-        self.delete_btn.setIcon(QIcon.fromTheme("edit-delete"))
-        self.delete_btn.clicked.connect(self._delete_selected)
-        toolbar.addWidget(self.delete_btn)
+        if self.perm.has_permission("vehicle.delete"):
+            self.delete_btn = QPushButton("Delete Selected")
+            self.delete_btn.setIcon(QIcon.fromTheme("edit-delete"))
+            self.delete_btn.clicked.connect(self._delete_selected)
+            toolbar.addWidget(self.delete_btn)
 
-        self.download_btn = QPushButton("Download Vehicle List")
-        self.download_btn.setIcon(QIcon.fromTheme("document-print"))
-        self.download_btn.clicked.connect(self.download_vehicle_list_clicked.emit)
-        toolbar.addWidget(self.download_btn)
+        if self.perm.has_permission("vehicle.download_report"):
+            self.download_btn = QPushButton("Download Vehicle List")
+            self.download_btn.setIcon(QIcon.fromTheme("document-print"))
+            self.download_btn.clicked.connect(self.download_vehicle_list_clicked.emit)
+            toolbar.addWidget(self.download_btn)
 
         layout.addLayout(toolbar)
 
-        # Bottom: table
+        # Bottom: table (always visible, read‑only for everyone except column edits are off anyway)
         self.table = QTableWidget()
-        self.table.setColumnCount(7)  # added Status column
+        self.table.setColumnCount(7)
         self.table.setHorizontalHeaderLabels([
             "Registration No", "Vehicle Type", "Model",
             "Engine Number", "Chassis Number", "Fuel Type", "Status"
@@ -97,7 +104,6 @@ class VehiclesPage(QWidget):
         """Fill table with vehicle data."""
         self.table.setRowCount(len(vehicles))
         for row, v in enumerate(vehicles):
-            # Registration number (store id in UserRole)
             reg_item = QTableWidgetItem(v["registration_number"])
             reg_item.setData(Qt.UserRole, v["id"])
             self.table.setItem(row, 0, reg_item)

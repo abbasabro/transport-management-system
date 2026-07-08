@@ -8,20 +8,27 @@ from PySide6.QtGui import QIcon, QFont
 
 from database.repositories.driver_repository import DriverRepository
 from database.repositories.vehicle_repository import VehicleRepository
+from security.permissions import PermissionManager
 
 
 class DriversPage(QWidget):
-    """Drivers management page with table, search, add, edit, delete, and PDF download."""
+    """Drivers management page with role‑based button visibility."""
 
     add_driver_clicked = Signal()
     edit_driver_requested = Signal(int)          # driver_id
-    download_driver_report_clicked = Signal()    # new signal for PDF
+    download_driver_report_clicked = Signal()    # only if permitted
     back_requested = Signal()
 
-    def __init__(self, driver_repo: DriverRepository, vehicle_repo: VehicleRepository):
+    def __init__(
+        self,
+        driver_repo: DriverRepository,
+        vehicle_repo: VehicleRepository,
+        perm_manager: PermissionManager,
+    ):
         super().__init__()
         self.driver_repo = driver_repo
         self.vehicle_repo = vehicle_repo
+        self.perm = perm_manager
         self._setup_ui()
         self.load_data()
 
@@ -45,33 +52,36 @@ class DriversPage(QWidget):
         top_layout.addStretch()
         layout.addLayout(top_layout)
 
-        # Middle: search bar + action buttons
+        # Middle: search bar + action buttons (conditionally visible)
         toolbar = QHBoxLayout()
         self.search_edit = QLineEdit()
         self.search_edit.setPlaceholderText("Search by name...")
         self.search_edit.textChanged.connect(self._filter_table)
         toolbar.addWidget(self.search_edit)
 
-        self.add_btn = QPushButton("Add Driver")
-        self.add_btn.setIcon(QIcon.fromTheme("list-add"))
-        self.add_btn.clicked.connect(self.add_driver_clicked.emit)
-        toolbar.addWidget(self.add_btn)
+        if self.perm.has_permission("driver.add"):
+            self.add_btn = QPushButton("Add Driver")
+            self.add_btn.setIcon(QIcon.fromTheme("list-add"))
+            self.add_btn.clicked.connect(self.add_driver_clicked.emit)
+            toolbar.addWidget(self.add_btn)
 
-        self.edit_btn = QPushButton("Edit Selected")
-        self.edit_btn.setIcon(QIcon.fromTheme("document-edit"))
-        self.edit_btn.clicked.connect(self._edit_selected)
-        toolbar.addWidget(self.edit_btn)
+        if self.perm.has_permission("driver.update"):
+            self.edit_btn = QPushButton("Edit Selected")
+            self.edit_btn.setIcon(QIcon.fromTheme("document-edit"))
+            self.edit_btn.clicked.connect(self._edit_selected)
+            toolbar.addWidget(self.edit_btn)
 
-        self.delete_btn = QPushButton("Delete Selected")
-        self.delete_btn.setIcon(QIcon.fromTheme("edit-delete"))
-        self.delete_btn.clicked.connect(self._delete_selected)
-        toolbar.addWidget(self.delete_btn)
+        if self.perm.has_permission("driver.delete"):
+            self.delete_btn = QPushButton("Delete Selected")
+            self.delete_btn.setIcon(QIcon.fromTheme("edit-delete"))
+            self.delete_btn.clicked.connect(self._delete_selected)
+            toolbar.addWidget(self.delete_btn)
 
-        # NEW: Download PDF button
-        self.download_btn = QPushButton("Download Driver List")
-        self.download_btn.setIcon(QIcon.fromTheme("document-print"))
-        self.download_btn.clicked.connect(self.download_driver_report_clicked.emit)
-        toolbar.addWidget(self.download_btn)
+        if self.perm.has_permission("driver.download_report"):
+            self.download_btn = QPushButton("Download Driver List")
+            self.download_btn.setIcon(QIcon.fromTheme("document-print"))
+            self.download_btn.clicked.connect(self.download_driver_report_clicked.emit)
+            toolbar.addWidget(self.download_btn)
 
         layout.addLayout(toolbar)
 
@@ -83,10 +93,14 @@ class DriversPage(QWidget):
             "Contact Number", "CNIC", "Route"
         ])
         self.table.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
-        self.table.setEditTriggers(QAbstractItemView.DoubleClicked | QAbstractItemView.EditKeyPressed)
+        # If user has update permission, allow inline editing of Route column only
+        if self.perm.has_permission("driver.update"):
+            self.table.setEditTriggers(QAbstractItemView.DoubleClicked | QAbstractItemView.EditKeyPressed)
+            self.table.itemChanged.connect(self._on_item_changed)
+        else:
+            self.table.setEditTriggers(QAbstractItemView.NoEditTriggers)
         self.table.setSelectionBehavior(QAbstractItemView.SelectRows)
         self.table.setSelectionMode(QAbstractItemView.SingleSelection)
-        self.table.itemChanged.connect(self._on_item_changed)
         layout.addWidget(self.table)
 
     def load_data(self):
@@ -98,7 +112,7 @@ class DriversPage(QWidget):
             self.table.setRowCount(0)
 
     def _populate_table(self, drivers):
-        """Fill table with driver data."""
+        """Fill table with driver data, controlling editability via permission."""
         self.table.blockSignals(True)
         self.table.setRowCount(len(drivers))
         for row, d in enumerate(drivers):
@@ -129,9 +143,12 @@ class DriversPage(QWidget):
             cnic_item.setFlags(cnic_item.flags() & ~Qt.ItemIsEditable)
             self.table.setItem(row, 4, cnic_item)
 
-            # Route column (editable)
+            # Route column (editable only if user has update permission)
             route_item = QTableWidgetItem(d.get("assigned_route", ""))
-            route_item.setFlags(route_item.flags() | Qt.ItemIsEditable)
+            if self.perm.has_permission("driver.update"):
+                route_item.setFlags(route_item.flags() | Qt.ItemIsEditable)
+            else:
+                route_item.setFlags(route_item.flags() & ~Qt.ItemIsEditable)
             self.table.setItem(row, 5, route_item)
         self.table.blockSignals(False)
 

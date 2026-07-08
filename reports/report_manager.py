@@ -40,7 +40,6 @@ class ReportManager:
         self, vehicle_id: int, from_date: str, to_date: str, fuel_consumed: str
     ):
         """Generate a Vehicle Log Report, pre‑filling the filename with vehicle details."""
-        # Validate fuel input
         try:
             fuel_val = float(fuel_consumed)
             if fuel_val <= 0:
@@ -52,7 +51,6 @@ class ReportManager:
             )
             return
 
-        # Build suggested filename from registration number and dates
         vehicle = self.vehicle_repo.get_by_id(vehicle_id)
         if vehicle:
             reg = vehicle["registration_number"]
@@ -127,7 +125,8 @@ class ReportManager:
             return
 
         try:
-            generator = RepairReport(self.repair_repo, self.vehicle_repo)
+            # FIX: RepairReport now requires only repair_repo.
+            generator = RepairReport(self.repair_repo)
             generator.generate(path, from_date, to_date)
             QMessageBox.information(
                 self.parent, "Success", f"Report saved to:\n{path}"
