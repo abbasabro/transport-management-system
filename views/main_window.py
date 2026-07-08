@@ -53,7 +53,7 @@ class MainWindow(QMainWindow):
         )
 
         # ------------------ Window setup ------------------
-        self.setWindowTitle("BBSTUD Transport Management System")
+        self.setWindowTitle("BBSUTSD Transport Management System")
         self.resize(1100, 700)
 
         # Central stacked widget

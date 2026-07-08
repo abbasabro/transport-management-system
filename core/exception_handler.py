@@ -34,7 +34,7 @@ class AppExceptionHandler:
     @classmethod
     def _setup_logger(cls):
         cls._ensure_log_dir()
-        logger = logging.getLogger("BBSTUD_TMS")
+        logger = logging.getLogger("BBSUTSD_TMS")
         logger.setLevel(logging.DEBUG)
 
         # Rotating file handler
