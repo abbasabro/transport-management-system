@@ -7,6 +7,7 @@ from database.database_manager import DatabaseManager
 from database.repositories.user_repository import UserRepository
 from dialogs.login_dialog import LoginDialog
 from views.main_window import MainWindow
+from utils.resource_path import resource_path   # NEW
 
 
 def main():
@@ -16,12 +17,10 @@ def main():
     # Install global exception hook (must be after QApplication creation)
     AppExceptionHandler.setup_global_handler()
 
-    # --- Application icon ---
-    logo_path = os.path.join("resources", "images", "logo.png")
-    if os.path.exists(logo_path):
-        app.setWindowIcon(QIcon(logo_path))
-    else:
-        app.setWindowIcon(app.style().standardIcon(app.style().SP_ComputerIcon))
+    # --- Application icon (use resource_path) ---
+    logo_path = resource_path("resources/images/logo.png")
+    app.setWindowIcon(QIcon(logo_path))
+
 
     # --- Database connection ---
     db = DatabaseManager()
@@ -31,7 +30,7 @@ def main():
         AppExceptionHandler.show_error(
             "Database Error",
             f"Could not connect to the local database.\n\n"
-            f"Please ensure 'transport_db.sqlite' exists in the application directory.\n\n"
+            f"Please ensure the application is installed correctly.\n\n"
             f"Error: {str(e)}"
         )
         sys.exit(1)

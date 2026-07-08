@@ -7,9 +7,12 @@ from reportlab.lib.enums import TA_CENTER, TA_LEFT, TA_RIGHT
 from reportlab.lib.colors import HexColor, white, black
 from reportlab.platypus import (
     Table, TableStyle, Paragraph, Spacer, Image,
-    BaseDocTemplate, PageTemplate, Frame, Flowable
+    Flowable, KeepTogether
 )
 from reportlab.platypus.flowables import HRFlowable
+from reportlab.platypus.doctemplate import BaseDocTemplate, PageTemplate, Frame
+from reportlab.platypus.tables import TableStyle
+from utils.resource_path import resource_path   # NEW
 
 # ----------------------------------------------------------------------
 # University Branding
@@ -18,69 +21,34 @@ UNIVERSITY_NAME_LINE1 = "THE BENAZIR BHUTTO SHAHEED UNIVERSITY"
 UNIVERSITY_NAME_LINE2 = "OF TECHNOLOGY & SKILLS DEVELOPMENT"
 UNIVERSITY_LOCATION = "Khairpur Mirs"
 SYSTEM_NAME = "Transport Management System"
-LOGO_PATH = os.path.join("resources", "images", "logo.png")
+
+# Logo path is now resolved dynamically
+def get_logo_path():
+    return resource_path("resources/images/university_logo.png")
 
 PRIMARY_BROWN = HexColor("#6B3B21")
 ACCENT_BROWN = HexColor("#AB6038")
 TABLE_HEADER_BG = PRIMARY_BROWN
 TABLE_HEADER_FG = white
-ROW_ALT = HexColor("#FDF6E3")
+ROW_ALT = HexColor("#FDF6E3")   # very light beige
 ROW_NORM = white
 BORDER_COLOR = PRIMARY_BROWN
 SUMMARY_BG = HexColor("#F9F2E7")
 SUMMARY_TITLE_BG = PRIMARY_BROWN
 SUMMARY_TITLE_FG = white
 
-# Page dimensions and layout
+# Page dimensions & margins
 PAGE_W, PAGE_H = A4
-MARGIN_LEFT = 18 * mm
-MARGIN_RIGHT = 18 * mm
-MARGIN_TOP = 25 * mm     # top space before header
-MARGIN_BOTTOM = 20 * mm  # bottom space after footer
-
-# Header height will be computed dynamically based on content
-HEADER_GAP = 15 * mm     # space between header bottom and body start
+MARGIN = 18 * mm
+HEADER_HEIGHT = 45 * mm   # space reserved for the university header
+FOOTER_HEIGHT = 15 * mm
 
 # ----------------------------------------------------------------------
-# Typography Styles
+# Typography Styles (using Helvetica family)
 # ----------------------------------------------------------------------
 styles = getSampleStyleSheet()
 
-# University name lines (inside the header table)
-uni_line1_style = ParagraphStyle(
-    "UniLine1",
-    fontName="Helvetica-Bold",
-    fontSize=14,
-    leading=18,
-    textColor=PRIMARY_BROWN,
-    alignment=TA_LEFT,
-)
-uni_line2_style = ParagraphStyle(
-    "UniLine2",
-    fontName="Helvetica-Bold",
-    fontSize=14,
-    leading=18,
-    textColor=PRIMARY_BROWN,
-    alignment=TA_LEFT,
-)
-uni_loc_style = ParagraphStyle(
-    "UniLoc",
-    fontName="Helvetica",
-    fontSize=10,
-    leading=13,
-    textColor=ACCENT_BROWN,
-    alignment=TA_LEFT,
-)
-uni_system_style = ParagraphStyle(
-    "SysName",
-    fontName="Helvetica-Bold",
-    fontSize=11,
-    leading=14,
-    textColor=PRIMARY_BROWN,
-    alignment=TA_LEFT,
-)
-
-# Report title (e.g., "VEHICLE LOG REPORT")
+# --- Document title (e.g., "VEHICLE LOG REPORT") ---
 report_title_style = ParagraphStyle(
     "ReportTitle",
     fontName="Helvetica-Bold",
@@ -88,10 +56,10 @@ report_title_style = ParagraphStyle(
     leading=22,
     textColor=PRIMARY_BROWN,
     alignment=TA_CENTER,
-    spaceAfter=8 * mm,
+    spaceAfter=10 * mm,
 )
 
-# Section headings inside reports
+# --- Section headings inside reports ---
 section_heading_style = ParagraphStyle(
     "SectionHeading",
     fontName="Helvetica-Bold",
@@ -102,7 +70,7 @@ section_heading_style = ParagraphStyle(
     spaceAfter=3 * mm,
 )
 
-# Information panel labels & values
+# --- Info panel labels & values ---
 info_label_style = ParagraphStyle(
     "InfoLabel",
     fontName="Helvetica-Bold",
@@ -121,7 +89,7 @@ info_value_style = ParagraphStyle(
     alignment=TA_LEFT,
 )
 
-# Table header & body
+# --- Table header & body ---
 table_header_style = ParagraphStyle(
     "TableHeader",
     fontName="Helvetica-Bold",
@@ -140,7 +108,7 @@ table_body_style = ParagraphStyle(
     alignment=TA_CENTER,
 )
 
-# Summary box
+# --- Summary box ---
 summary_title_style = ParagraphStyle(
     "SummaryTitle",
     fontName="Helvetica-Bold",
@@ -168,7 +136,7 @@ summary_value_style = ParagraphStyle(
     alignment=TA_LEFT,
 )
 
-# Footer (used in canvas)
+# --- Footer ---
 footer_style = ParagraphStyle(
     "Footer",
     fontName="Helvetica",
@@ -183,21 +151,19 @@ footer_style = ParagraphStyle(
 # ----------------------------------------------------------------------
 
 def get_logo(width=24*mm, height=24*mm):
-    """Return an Image flowable if the logo exists, else a transparent spacer."""
-    if os.path.exists(LOGO_PATH):
-        img = Image(LOGO_PATH, width=width, height=height)
+    """Return an Image flowable if the logo file exists, else a transparent spacer."""
+    logo_path = get_logo_path()
+    if os.path.exists(logo_path):
+        img = Image(logo_path, width=width, height=height)
         img.hAlign = 'LEFT'
         return img
     else:
-        # return a blank placeholder with same dimensions to maintain alignment
         return Spacer(width, height)
-
 
 def build_header_table():
     """
     Build the university header as a ReportLab Table.
-    Left column: logo (24x24 mm). Right column: university name block.
-    Returns the Table flowable.
+    Left column: logo (24×24 mm). Right column: university name block.
     """
     logo_img = get_logo(24*mm, 24*mm)
 
@@ -230,74 +196,60 @@ def build_header_table():
     ]))
     return header_table
 
+# uni_line styles must be defined before use; I'll add them here
+uni_line1_style = ParagraphStyle("UniLine1", fontName="Helvetica-Bold", fontSize=14, leading=18, textColor=PRIMARY_BROWN, alignment=TA_LEFT)
+uni_line2_style = ParagraphStyle("UniLine2", fontName="Helvetica-Bold", fontSize=14, leading=18, textColor=PRIMARY_BROWN, alignment=TA_LEFT)
+uni_loc_style = ParagraphStyle("UniLoc", fontName="Helvetica", fontSize=10, leading=13, textColor=ACCENT_BROWN, alignment=TA_LEFT)
+uni_system_style = ParagraphStyle("SysName", fontName="Helvetica-Bold", fontSize=11, leading=14, textColor=PRIMARY_BROWN, alignment=TA_LEFT)
 
 def compute_header_height():
-    """Return the height of the header table after wrapping to the page width."""
     header_table = build_header_table()
-    available_width = PAGE_W - MARGIN_LEFT - MARGIN_RIGHT
+    available_width = PAGE_W - MARGIN - MARGIN   # MARGIN is same as MARGIN_LEFT/RIGHT
     w, h = header_table.wrap(available_width, PAGE_H)
     return h
 
-
 def draw_page_decorations(canvas, doc, user_name=""):
-    """
-    Canvas callback that draws the header table at the top of every page
-    and the footer at the bottom, without manual coordinate tweaking.
-    """
     canvas.saveState()
     # --- Header ---
     header_table = build_header_table()
     header_height = compute_header_height()
-    available_width = PAGE_W - MARGIN_LEFT - MARGIN_RIGHT
+    available_width = PAGE_W - MARGIN*2
     header_table.wrap(available_width, header_height)
-    # Position the header table: x = MARGIN_LEFT, y = PAGE_H - MARGIN_TOP + something?
-    # We want top of header at MARGIN_TOP from top edge.
-    header_table.drawOn(canvas, MARGIN_LEFT, PAGE_H - MARGIN_TOP - header_height)
+    header_table.drawOn(canvas, MARGIN, PAGE_H - MARGIN - header_height)
 
     # Separator line below header
     canvas.setStrokeColor(PRIMARY_BROWN)
     canvas.setLineWidth(2)
-    line_y = PAGE_H - MARGIN_TOP - header_height - 4 * mm
-    canvas.line(MARGIN_LEFT, line_y, PAGE_W - MARGIN_RIGHT, line_y)
+    line_y = PAGE_H - MARGIN - header_height - 4*mm
+    canvas.line(MARGIN, line_y, PAGE_W - MARGIN, line_y)
 
     # --- Footer ---
-    footer_y = MARGIN_BOTTOM
+    footer_y = MARGIN
     canvas.setStrokeColor(ACCENT_BROWN)
     canvas.setLineWidth(0.5)
-    canvas.line(MARGIN_LEFT, footer_y + 8*mm, PAGE_W - MARGIN_RIGHT, footer_y + 8*mm)
+    canvas.line(MARGIN, footer_y + 8*mm, PAGE_W - MARGIN, footer_y + 8*mm)
 
     canvas.setFont("Helvetica", 8)
     canvas.setFillColor(HexColor("#4B4B4B"))
-    # Left: system name and date
-    left_str = f"BBSUTSD Transport Management System | {datetime.now().strftime('%Y-%m-%d %H:%M')}"
-    canvas.drawString(MARGIN_LEFT, footer_y + 3*mm, left_str)
-    # Center: generated by
+    left_str = f"BBSTUD Transport Management System | {datetime.now().strftime('%Y-%m-%d %H:%M')}"
+    canvas.drawString(MARGIN, footer_y + 3*mm, left_str)
     if user_name:
         canvas.drawCentredString(PAGE_W / 2, footer_y + 3*mm, f"Generated by: {user_name}")
-    # Right: page number
-    canvas.drawRightString(PAGE_W - MARGIN_RIGHT, footer_y + 3*mm,
-                           f"Page {canvas.getPageNumber()}")
+    canvas.drawRightString(PAGE_W - MARGIN, footer_y + 3*mm, f"Page {canvas.getPageNumber()}")
 
     canvas.restoreState()
 
-
 # ----------------------------------------------------------------------
-# Information Panel
+# Information Panel (form-like)
 # ----------------------------------------------------------------------
 def build_info_panel(info_dict: dict, title="Vehicle Information"):
-    """
-    Creates a bordered information panel with brown title bar.
-    info_dict: ordered dict of label -> value.
-    Returns a Table flowable.
-    """
     data = [[Paragraph(title, summary_title_style)]]
     for label, value in info_dict.items():
         data.append([
             Paragraph(str(label), info_label_style),
             Paragraph(str(value), info_value_style)
         ])
-    # Use 40% / 60% of available width (which will be set later by the report)
-    col_widths = [None, None]  # will be auto-sized; we'll set fixed widths later
+    col_widths = [70*mm, 100*mm]
     t = Table(data, colWidths=col_widths, hAlign='LEFT')
     t.setStyle(TableStyle([
         ('SPAN', (0,0), (-1,0)),
@@ -317,18 +269,17 @@ def build_info_panel(info_dict: dict, title="Vehicle Information"):
     ]))
     return t
 
-
 # ----------------------------------------------------------------------
-# Data Table Builder
+# Data Table Builder (full-width, professional)
 # ----------------------------------------------------------------------
 def build_data_table(headers: list, data: list, col_widths=None):
-    """
-    Build a full-width data table with brown header and alternating row colors.
-    col_widths: optional list of column widths; if None, equally divide available width.
-    """
     header_paragraphs = [Paragraph(h, table_header_style) for h in headers]
     rows = [[Paragraph(str(cell), table_body_style) for cell in row] for row in data]
     full_data = [header_paragraphs] + rows
+
+    if col_widths is None:
+        usable_width = PAGE_W - 2*MARGIN
+        col_widths = [usable_width / len(headers)] * len(headers)
 
     t = Table(full_data, colWidths=col_widths, hAlign='LEFT', repeatRows=1)
     t.setStyle(TableStyle([
@@ -350,23 +301,18 @@ def build_data_table(headers: list, data: list, col_widths=None):
     ]))
     return t
 
-
 # ----------------------------------------------------------------------
-# Summary Box
+# Summary Box (trip summary, repair summary, etc.)
 # ----------------------------------------------------------------------
 def build_summary_box(summary_items: list, title="Summary"):
-    """
-    Creates a bordered summary box with brown title bar and beige background.
-    summary_items: list of (label, value) tuples.
-    Returns a Table flowable.
-    """
     data = [[Paragraph(title, summary_title_style)]]
     for label, value in summary_items:
         data.append([
             Paragraph(str(label), summary_label_style),
             Paragraph(str(value), summary_value_style)
         ])
-    t = Table(data, colWidths=[None, None], hAlign='LEFT')
+    col_widths = [70*mm, 100*mm]
+    t = Table(data, colWidths=col_widths, hAlign='LEFT')
     t.setStyle(TableStyle([
         ('SPAN', (0,0), (-1,0)),
         ('BACKGROUND', (0,0), (-1,0), SUMMARY_TITLE_BG),
@@ -385,37 +331,29 @@ def build_summary_box(summary_items: list, title="Summary"):
     ]))
     return t
 
-
 # ----------------------------------------------------------------------
 # Spacers and Separators
 # ----------------------------------------------------------------------
 def spacer(height=5*mm):
     return Spacer(1, height)
 
-
 def horizontal_line():
     return HRFlowable(width="100%", thickness=1, color=ACCENT_BROWN)
-
 
 # ----------------------------------------------------------------------
 # Page Template Factory
 # ----------------------------------------------------------------------
 class ReportDocTemplate(BaseDocTemplate):
-    """
-    Custom document template that uses a frame starting below the header
-    and draws the header table on every page.
-    """
+    """Custom document template that uses a frame starting below the header."""
     def __init__(self, filename, user_name="", **kwargs):
         super().__init__(filename, **kwargs)
         self.user_name = user_name
-        # Compute header height once
         self.header_height = compute_header_height()
-        # Body frame: starts after header + gap, ends before footer area
-        frame_top = PAGE_H - MARGIN_TOP - self.header_height - HEADER_GAP
-        frame_bottom = MARGIN_BOTTOM + 12 * mm  # leave room for footer line
+        frame_top = PAGE_H - MARGIN - self.header_height - 4*mm   # gap after header
+        frame_bottom = MARGIN + 12*mm
         frame = Frame(
-            MARGIN_LEFT, frame_bottom,
-            PAGE_W - MARGIN_LEFT - MARGIN_RIGHT,
+            MARGIN, frame_bottom,
+            PAGE_W - 2*MARGIN,
             frame_top - frame_bottom,
             id='main'
         )
