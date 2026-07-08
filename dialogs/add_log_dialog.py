@@ -3,6 +3,7 @@ from PySide6.QtWidgets import (
     QDialogButtonBox, QLabel, QMessageBox
 )
 from PySide6.QtCore import QDate, QTime
+from core.exception_handler import AppExceptionHandler
 from database.database_manager import DatabaseManager
 from database.repositories.driver_repository import DriverRepository
 from database.repositories.vehicle_repository import VehicleRepository
@@ -135,31 +136,26 @@ class AddLogDialog(QDialog):
             self.mileage_label.setText("Invalid")
 
     def _validate_and_save(self):
-        """Validate inputs, check mileage, and insert into database."""
         # Meter Out/In validation
         try:
             meter_out = float(self.meter_out_edit.text())
             meter_in = float(self.meter_in_edit.text())
         except ValueError:
-            QMessageBox.warning(self, "Invalid Input",
-                                "Meter Out and Meter In must be numbers.")
+            QMessageBox.warning(self, "Invalid Input", "Meter Out and Meter In must be numbers.")
             return
 
         if meter_in < meter_out:
-            QMessageBox.warning(self, "Invalid Mileage",
-                                "Meter In cannot be less than Meter Out.")
+            QMessageBox.warning(self, "Invalid Mileage", "Meter In cannot be less than Meter Out.")
             return
 
         mileage = meter_in - meter_out
 
-        # Driver ID
         driver_id = self.driver_name_edit.property("driver_id")
         if driver_id is None:
-            QMessageBox.warning(self, "No Driver",
-                                "No driver is assigned to this vehicle. Cannot save log.")
+            QMessageBox.warning(self, "No Driver", "No driver is assigned to this vehicle. Cannot save log.")
             return
 
-        # Fuel and Mobile Oil (optional, convert to float or None)
+        # Optional Fuel and Mobile Oil
         fuel = None
         mobile_oil = None
         if self.fuel_edit.text().strip():
@@ -198,4 +194,5 @@ class AddLogDialog(QDialog):
             )
             self.accept()
         except ValueError as e:
-            QMessageBox.warning(self, "Database Error", str(e))
+            # Database integrity error (foreign key, etc.)
+            AppExceptionHandler.show_error("Database Error", str(e), parent=self)
