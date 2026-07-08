@@ -17,7 +17,7 @@ class LoginDialog(QDialog):
         super().__init__(parent)
         self.user_repo = user_repo
         self.user_data = None  # populated on successful login
-        self.setWindowTitle("BBSTUD Transport - Login")
+        self.setWindowTitle("BBSUTSD Transport - Login")
         self.setFixedSize(400, 250)
         self._setup_ui()
 
@@ -26,7 +26,7 @@ class LoginDialog(QDialog):
         layout.setSpacing(20)
 
         # Header
-        header = QLabel("Welcome to BBSTUD Transport")
+        header = QLabel("Welcome to BBSUTSD Transport")
         header.setFont(QFont("Segoe UI", 14, QFont.Bold))
         header.setAlignment(Qt.AlignCenter)
         layout.addWidget(header)

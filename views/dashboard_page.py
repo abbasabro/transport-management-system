@@ -23,8 +23,9 @@ class DashboardPage(QWidget):
     all_logs_clicked = Signal()
     settings_clicked = Signal()
 
-    PRIMARY_BLUE = "#1A56DB"
+    PRIMARY_BLUE ="#6a3b21"
     GOLD = "#F2A900"
+    
 
     def __init__(
         self,
@@ -160,11 +161,11 @@ class DashboardPage(QWidget):
                 font-weight: bold;
             }}
             QPushButton:hover {{
-                background-color: #1748b0;
+                background-color: #592c1c;
                 border-color: {self.GOLD};
             }}
             QPushButton:pressed {{
-                background-color: #123a8c;
+                background-color: #a16b4e;
             }}
         """)
         return btn

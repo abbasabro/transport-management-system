@@ -17,7 +17,7 @@ def main():
     AppExceptionHandler.setup_global_handler()
 
     # --- Application icon ---
-    logo_path = os.path.join("resources", "images", "BBSTUD_logo.jpeg")
+    logo_path = os.path.join("resources", "images", "logo.png")
     if os.path.exists(logo_path):
         app.setWindowIcon(QIcon(logo_path))
     else:
