@@ -1,4 +1,5 @@
 from PySide6.QtWidgets import QFileDialog, QMessageBox, QWidget
+from core.exception_handler import AppExceptionHandler
 from reports.vehicle_report import VehicleReport
 from reports.driver_report import DriverReport
 from reports.vehicle_list_report import VehicleListReport
@@ -40,6 +41,7 @@ class ReportManager:
         self, vehicle_id: int, from_date: str, to_date: str, fuel_consumed: str
     ):
         """Generate a Vehicle Log Report, pre‑filling the filename with vehicle details."""
+        # Validate fuel input
         try:
             fuel_val = float(fuel_consumed)
             if fuel_val <= 0:
@@ -51,6 +53,7 @@ class ReportManager:
             )
             return
 
+        # Build suggested filename from registration number and dates
         vehicle = self.vehicle_repo.get_by_id(vehicle_id)
         if vehicle:
             reg = vehicle["registration_number"]
@@ -77,9 +80,11 @@ class ReportManager:
                 self.parent, "Success", f"Report saved to:\n{path}"
             )
         except Exception as e:
+            AppExceptionHandler.handle_exception(e, parent=self.parent, title="Report Error")
+            # Still show a user-friendly message (handle_exception already does, but we add context)
             QMessageBox.critical(
                 self.parent, "Report Error",
-                f"Failed to generate the report:\n{str(e)}"
+                "Failed to generate the report. Please check the logs for details."
             )
 
     def generate_driver_report(self):
@@ -95,9 +100,10 @@ class ReportManager:
                 self.parent, "Success", f"Report saved to:\n{path}"
             )
         except Exception as e:
+            AppExceptionHandler.handle_exception(e, parent=self.parent, title="Report Error")
             QMessageBox.critical(
                 self.parent, "Report Error",
-                f"Failed to generate the report:\n{str(e)}"
+                "Failed to generate the driver report. Please check the logs for details."
             )
 
     def generate_vehicle_list_report(self):
@@ -113,9 +119,10 @@ class ReportManager:
                 self.parent, "Success", f"Report saved to:\n{path}"
             )
         except Exception as e:
+            AppExceptionHandler.handle_exception(e, parent=self.parent, title="Report Error")
             QMessageBox.critical(
                 self.parent, "Report Error",
-                f"Failed to generate the report:\n{str(e)}"
+                "Failed to generate the vehicle list report. Please check the logs for details."
             )
 
     def generate_repair_report(self, from_date: str, to_date: str):
@@ -125,14 +132,14 @@ class ReportManager:
             return
 
         try:
-            # FIX: RepairReport now requires only repair_repo.
             generator = RepairReport(self.repair_repo)
             generator.generate(path, from_date, to_date)
             QMessageBox.information(
                 self.parent, "Success", f"Report saved to:\n{path}"
             )
         except Exception as e:
+            AppExceptionHandler.handle_exception(e, parent=self.parent, title="Report Error")
             QMessageBox.critical(
                 self.parent, "Report Error",
-                f"Failed to generate the report:\n{str(e)}"
+                "Failed to generate the repair report. Please check the logs for details."
             )

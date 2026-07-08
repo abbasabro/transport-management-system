@@ -2,6 +2,7 @@ from PySide6.QtWidgets import (
     QDialog, QVBoxLayout, QFormLayout, QLineEdit, QComboBox,
     QDialogButtonBox, QMessageBox
 )
+from core.exception_handler import AppExceptionHandler
 from database.repositories.vehicle_repository import VehicleRepository
 
 
@@ -62,7 +63,7 @@ class AddVehicleDialog(QDialog):
         layout.addWidget(buttons)
 
     def _populate_fields(self):
-        """Pre‑fill fields, converting all values to strings."""
+        """Pre‑fill fields when editing an existing vehicle."""
         v = self.vehicle_data
         self.registration_edit.setText(str(v.get("registration_number", "")))
         # vehicle type combo
@@ -107,6 +108,7 @@ class AddVehicleDialog(QDialog):
                     engine_number=engine,
                     chassis_number=chassis,
                     fuel_type=fuel,
+                    status=self.vehicle_data.get("status", "Active")
                 )
             else:
                 self.vehicle_repo.add(
@@ -119,4 +121,4 @@ class AddVehicleDialog(QDialog):
                 )
             self.accept()
         except ValueError as e:
-            QMessageBox.warning(self, "Database Error", str(e))
+            AppExceptionHandler.show_error("Database Error", str(e), parent=self)

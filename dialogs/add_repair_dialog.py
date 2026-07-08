@@ -3,6 +3,7 @@ from PySide6.QtWidgets import (
     QComboBox, QDialogButtonBox, QMessageBox
 )
 from PySide6.QtCore import QDate
+from core.exception_handler import AppExceptionHandler
 from database.repositories.repair_repository import RepairRepository
 from database.repositories.vehicle_repository import VehicleRepository
 
@@ -18,7 +19,7 @@ class AddRepairDialog(QDialog):
         repair_repo: RepairRepository,
         vehicle_repo: VehicleRepository,
         parent=None,
-        repair_data = None,
+        repair_data= None,
     ):
         super().__init__(parent)
         self.repair_repo = repair_repo
@@ -43,7 +44,7 @@ class AddRepairDialog(QDialog):
             for v in vehicles:
                 self.vehicle_combo.addItem(v["registration_number"], v["id"])
         except Exception:
-            pass  # no vehicles
+            pass
         form.addRow("Vehicle:", self.vehicle_combo)
 
         # Repair Date
@@ -89,7 +90,6 @@ class AddRepairDialog(QDialog):
             if idx >= 0:
                 self.vehicle_combo.setCurrentIndex(idx)
 
-        # Set date
         if d.get("repair_date"):
             self.date_edit.setDate(QDate.fromString(d["repair_date"], "yyyy-MM-dd"))
 
@@ -160,4 +160,4 @@ class AddRepairDialog(QDialog):
                 )
             self.accept()
         except ValueError as e:
-            QMessageBox.warning(self, "Database Error", str(e))
+            AppExceptionHandler.show_error("Database Error", str(e), parent=self)

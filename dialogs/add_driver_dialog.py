@@ -2,6 +2,7 @@ from PySide6.QtWidgets import (
     QDialog, QVBoxLayout, QFormLayout, QLineEdit, QComboBox,
     QCheckBox, QDialogButtonBox, QMessageBox
 )
+from core.exception_handler import AppExceptionHandler
 from database.repositories.driver_repository import DriverRepository
 from database.repositories.vehicle_repository import VehicleRepository
 
@@ -30,37 +31,30 @@ class AddDriverDialog(QDialog):
         self._setup_ui()
         if self.edit_mode:
             self._populate_fields()
-        # Initial state: if spare is checked, disable vehicle combo
         self._toggle_vehicle_combo()
 
     def _setup_ui(self):
         layout = QVBoxLayout(self)
         form = QFormLayout()
 
-        # Name
         self.name_edit = QLineEdit()
         form.addRow("Driver Name:", self.name_edit)
 
-        # Designation
         self.designation_edit = QLineEdit()
         form.addRow("Designation:", self.designation_edit)
 
-        # Contact Number
         self.contact_edit = QLineEdit()
         form.addRow("Contact Number:", self.contact_edit)
 
-        # CNIC
         self.cnic_edit = QLineEdit()
         form.addRow("CNIC:", self.cnic_edit)
 
-        # Spare Driver checkbox
         self.spare_checkbox = QCheckBox("Spare Driver")
         self.spare_checkbox.toggled.connect(self._toggle_vehicle_combo)
         form.addRow("", self.spare_checkbox)
 
-        # Vehicle assignment
         self.vehicle_combo = QComboBox()
-        self.vehicle_combo.addItem("None", None)  # allow unassigned (for spare)
+        self.vehicle_combo.addItem("None", None)
         try:
             vehicles = self.vehicle_repo.get_all_active()
             for v in vehicles:
@@ -69,7 +63,6 @@ class AddDriverDialog(QDialog):
             pass
         form.addRow("Assigned Vehicle:", self.vehicle_combo)
 
-        # Route
         self.route_edit = QLineEdit()
         form.addRow("Assigned Route:", self.route_edit)
 
@@ -81,14 +74,12 @@ class AddDriverDialog(QDialog):
         layout.addWidget(buttons)
 
     def _toggle_vehicle_combo(self):
-        """Enable/disable vehicle combo based on spare checkbox."""
         is_spare = self.spare_checkbox.isChecked()
         self.vehicle_combo.setEnabled(not is_spare)
         if is_spare:
-            self.vehicle_combo.setCurrentIndex(0)  # reset to None
+            self.vehicle_combo.setCurrentIndex(0)
 
     def _populate_fields(self):
-        """Pre‑fill fields with existing driver data."""
         d = self.driver_data
         self.name_edit.setText(d.get("name", ""))
         self.designation_edit.setText(d.get("designation", ""))
@@ -96,28 +87,24 @@ class AddDriverDialog(QDialog):
         self.cnic_edit.setText(d.get("cnic", ""))
         self.route_edit.setText(d.get("assigned_route", ""))
 
-        # Spare checkbox: checked if no vehicle assigned
         is_spare = d.get("assigned_vehicle_id") is None
         self.spare_checkbox.setChecked(is_spare)
 
-        # Vehicle combo
         assigned_id = d.get("assigned_vehicle_id")
         if assigned_id is not None:
             idx = self.vehicle_combo.findData(assigned_id)
             if idx >= 0:
                 self.vehicle_combo.setCurrentIndex(idx)
         else:
-            self.vehicle_combo.setCurrentIndex(0)  # None
+            self.vehicle_combo.setCurrentIndex(0)
 
     def _save(self):
-        """Validate input and call repository."""
         name = self.name_edit.text().strip()
         designation = self.designation_edit.text().strip()
         contact = self.contact_edit.text().strip()
         cnic = self.cnic_edit.text().strip()
         route = self.route_edit.text().strip()
 
-        # Basic validation
         if not name or not designation or not cnic:
             QMessageBox.warning(self, "Validation Error", "Name, Designation and CNIC are required.")
             return
@@ -153,4 +140,4 @@ class AddDriverDialog(QDialog):
                 )
             self.accept()
         except ValueError as e:
-            QMessageBox.warning(self, "Database Error", str(e))
+            AppExceptionHandler.show_error("Database Error", str(e), parent=self)
