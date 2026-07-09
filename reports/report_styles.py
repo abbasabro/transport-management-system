@@ -23,7 +23,7 @@ UNIVERSITY_LOCATION = "Khairpur Mirs"
 SYSTEM_NAME = "Transport Management System"
 
 def get_logo_path():
-    return resource_path("resources/images/university_logo.png")
+    return resource_path("resources/images/logo.png")
 
 PRIMARY_BROWN = HexColor("#6B3B21")
 ACCENT_BROWN = HexColor("#AB6038")
