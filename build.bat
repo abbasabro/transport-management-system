@@ -1,6 +1,6 @@
 @echo off
 REM Activate the virtual environment (adjust path if needed)
-call buildenv\Scripts\activate.bat
+call venv\Scripts\activate.bat
 
 REM Clean previous build
 rmdir /s /q dist
@@ -10,7 +10,7 @@ REM Run PyInstaller with correct resource paths
 pyinstaller ^
   --name "BBSUTSD-TMS" ^
   --windowed ^
-  --icon="resources/images/university_logo.png" ^
+  --icon="resources/images/logo.png" ^
   --add-data "transport_db.db;." ^
   --add-data "resources;resources" ^
   --add-data "reports;reports" ^

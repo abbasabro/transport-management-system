@@ -42,7 +42,7 @@ class VehicleListReport:
         # Table headers
         headers = [
             "Registration Number", "Vehicle Type", "Model",
-            "Fuel Type", "Engine Number", "Chassis Number", "Status"
+            "Fuel Type", "Engine Number", "Chassis Number", 
         ]
         data_rows = []
         for v in vehicles:
@@ -53,7 +53,6 @@ class VehicleListReport:
                 v.get("fuel_type", ""),
                 v.get("engine_number", ""),
                 v.get("chassis_number", ""),
-                v.get("status", "Active"),
             ])
 
         if data_rows:

@@ -4,38 +4,32 @@ import traceback
 import logging
 from logging.handlers import RotatingFileHandler
 from PySide6.QtWidgets import QMessageBox, QApplication
-from utils.resource_path import resource_path  # for potential future use
+from utils.resource_path import resource_path  # not used directly but kept for consistency
 
 
 class AppExceptionHandler:
     """
     Centralized error handler.
-    Call `setup()` early in main() to install the global hook.
+    Call `setup_global_handler()` early in main() to install the global hook.
     """
-
-    # Log directory – writable location
-    @classmethod
-    def _get_log_dir(cls):
-        """Return a writable directory for log files."""
-        if getattr(sys, 'frozen', False):
-            # Running as bundled executable – use AppData
-            base = os.path.join(os.environ.get("APPDATA", os.path.expanduser("~")), "BBSTUD-TMS")
-        else:
-            base = os.path.abspath(".")
-        log_dir = os.path.join(base, "logs")
-        os.makedirs(log_dir, exist_ok=True)
-        return log_dir
-
-    LOG_FILE = os.path.join(_get_log_dir.__func__(), "application.log")  # won't work; we'll set dynamically
 
     MAX_LOG_SIZE = 5 * 1024 * 1024  # 5 MB
     BACKUP_COUNT = 3
 
     _logger = None
 
-    @classmethod
-    def _ensure_log_dir(cls):
-        os.makedirs(cls._get_log_dir(), exist_ok=True)
+    @staticmethod
+    def _get_log_dir() -> str:
+        """Return the writable directory for log files."""
+        if getattr(sys, 'frozen', False):
+            # Running as a PyInstaller bundle – use AppData
+            base = os.path.join(os.environ.get("APPDATA", os.path.expanduser("~")), "BBSTUD-TMS")
+        else:
+            # Development mode – use the project root
+            base = os.path.abspath(".")
+        log_dir = os.path.join(base, "logs")
+        os.makedirs(log_dir, exist_ok=True)
+        return log_dir
 
     @classmethod
     def get_logger(cls):
@@ -46,8 +40,8 @@ class AppExceptionHandler:
 
     @classmethod
     def _setup_logger(cls):
-        cls._ensure_log_dir()
-        log_path = os.path.join(cls._get_log_dir(), "application.log")
+        log_dir = cls._get_log_dir()  # now works, static method
+        log_path = os.path.join(log_dir, "application.log")
         logger = logging.getLogger("BBSTUD_TMS")
         logger.setLevel(logging.DEBUG)
 
@@ -55,7 +49,6 @@ class AppExceptionHandler:
         if logger.hasHandlers():
             logger.handlers.clear()
 
-        # Rotating file handler
         fh = RotatingFileHandler(
             log_path, maxBytes=cls.MAX_LOG_SIZE, backupCount=cls.BACKUP_COUNT
         )
@@ -69,10 +62,7 @@ class AppExceptionHandler:
 
     @classmethod
     def setup_global_handler(cls):
-        """
-        Install the global excepthook. Unhandled exceptions will be logged
-        and presented in a message box.
-        """
+        """Install the global excepthook."""
         sys.excepthook = cls._global_exception_hook
 
     @classmethod
@@ -87,7 +77,7 @@ class AppExceptionHandler:
         error_msg = f"An unexpected error occurred.\n\nError: {exc_value}"
         cls._show_error_dialog("Application Error", error_msg)
 
-        # Call the original excepthook (optional – keep for debugging)
+        # Optionally call the original excepthook
         sys.__excepthook__(exc_type, exc_value, exc_traceback)
 
     @classmethod
@@ -107,18 +97,14 @@ class AppExceptionHandler:
 
     @classmethod
     def show_error(cls, title, message, parent=None):
-        """
-        Show a user‑friendly error dialog and log the message.
-        """
+        """Show a user‑friendly error dialog and log the message."""
         logger = cls.get_logger()
         logger.error(f"{title}: {message}")
         cls._show_error_dialog(title, message, parent)
 
     @classmethod
     def handle_exception(cls, exception, parent=None, title="Application Error"):
-        """
-        Log the exception and show a dialog with its message.
-        """
+        """Log the exception and show a dialog with its message."""
         logger = cls.get_logger()
         logger.exception(exception)
         cls._show_error_dialog(title, str(exception), parent)

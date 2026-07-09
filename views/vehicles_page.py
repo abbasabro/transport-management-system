@@ -81,10 +81,10 @@ class VehiclesPage(QWidget):
 
         # Bottom: table (always visible, read‑only for everyone except column edits are off anyway)
         self.table = QTableWidget()
-        self.table.setColumnCount(7)
+        self.table.setColumnCount(6)
         self.table.setHorizontalHeaderLabels([
             "Registration No", "Vehicle Type", "Model",
-            "Engine Number", "Chassis Number", "Fuel Type", "Status"
+            "Engine Number", "Chassis Number", "Fuel Type", 
         ])
         self.table.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
         self.table.setEditTriggers(QAbstractItemView.NoEditTriggers)
@@ -113,7 +113,6 @@ class VehiclesPage(QWidget):
             self.table.setItem(row, 3, QTableWidgetItem(v.get("engine_number", "")))
             self.table.setItem(row, 4, QTableWidgetItem(v.get("chassis_number", "")))
             self.table.setItem(row, 5, QTableWidgetItem(v.get("fuel_type", "")))
-            self.table.setItem(row, 6, QTableWidgetItem(v.get("status", "Active")))
 
     def _filter_table(self, text):
         for row in range(self.table.rowCount()):

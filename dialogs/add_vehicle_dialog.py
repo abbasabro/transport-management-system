@@ -108,7 +108,6 @@ class AddVehicleDialog(QDialog):
                     engine_number=engine,
                     chassis_number=chassis,
                     fuel_type=fuel,
-                    status=self.vehicle_data.get("status", "Active")
                 )
             else:
                 self.vehicle_repo.add(
