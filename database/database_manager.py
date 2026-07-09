@@ -1,5 +1,6 @@
 import sqlite3
 import os
+import sys
 import shutil
 from datetime import datetime
 from utils.resource_path import resource_path
@@ -107,7 +108,6 @@ class DatabaseManager:
                 engine_number TEXT,
                 chassis_number TEXT,
                 fuel_type TEXT NOT NULL,
-                status TEXT NOT NULL DEFAULT 'Active',
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 updated_at TIMESTAMP,
                 is_synced INTEGER DEFAULT 0,

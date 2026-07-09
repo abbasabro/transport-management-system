@@ -12,7 +12,7 @@ from reportlab.platypus import (
 from reportlab.platypus.flowables import HRFlowable
 from reportlab.platypus.doctemplate import BaseDocTemplate, PageTemplate, Frame
 from reportlab.platypus.tables import TableStyle
-from utils.resource_path import resource_path   # NEW
+from utils.resource_path import resource_path
 
 # ----------------------------------------------------------------------
 # University Branding
@@ -22,7 +22,6 @@ UNIVERSITY_NAME_LINE2 = "OF TECHNOLOGY & SKILLS DEVELOPMENT"
 UNIVERSITY_LOCATION = "Khairpur Mirs"
 SYSTEM_NAME = "Transport Management System"
 
-# Logo path is now resolved dynamically
 def get_logo_path():
     return resource_path("resources/images/university_logo.png")
 
@@ -40,7 +39,10 @@ SUMMARY_TITLE_FG = white
 # Page dimensions & margins
 PAGE_W, PAGE_H = A4
 MARGIN = 18 * mm
-HEADER_HEIGHT = 45 * mm   # space reserved for the university header
+MARGIN_LEFT = MARGIN          # to satisfy existing imports
+MARGIN_RIGHT = MARGIN         # to satisfy existing imports
+
+HEADER_HEIGHT = 45 * mm
 FOOTER_HEIGHT = 15 * mm
 
 # ----------------------------------------------------------------------
@@ -48,7 +50,6 @@ FOOTER_HEIGHT = 15 * mm
 # ----------------------------------------------------------------------
 styles = getSampleStyleSheet()
 
-# --- Document title (e.g., "VEHICLE LOG REPORT") ---
 report_title_style = ParagraphStyle(
     "ReportTitle",
     fontName="Helvetica-Bold",
@@ -59,7 +60,6 @@ report_title_style = ParagraphStyle(
     spaceAfter=10 * mm,
 )
 
-# --- Section headings inside reports ---
 section_heading_style = ParagraphStyle(
     "SectionHeading",
     fontName="Helvetica-Bold",
@@ -70,7 +70,6 @@ section_heading_style = ParagraphStyle(
     spaceAfter=3 * mm,
 )
 
-# --- Info panel labels & values ---
 info_label_style = ParagraphStyle(
     "InfoLabel",
     fontName="Helvetica-Bold",
@@ -89,7 +88,6 @@ info_value_style = ParagraphStyle(
     alignment=TA_LEFT,
 )
 
-# --- Table header & body ---
 table_header_style = ParagraphStyle(
     "TableHeader",
     fontName="Helvetica-Bold",
@@ -108,7 +106,6 @@ table_body_style = ParagraphStyle(
     alignment=TA_CENTER,
 )
 
-# --- Summary box ---
 summary_title_style = ParagraphStyle(
     "SummaryTitle",
     fontName="Helvetica-Bold",
@@ -136,7 +133,6 @@ summary_value_style = ParagraphStyle(
     alignment=TA_LEFT,
 )
 
-# --- Footer ---
 footer_style = ParagraphStyle(
     "Footer",
     fontName="Helvetica",
@@ -151,7 +147,6 @@ footer_style = ParagraphStyle(
 # ----------------------------------------------------------------------
 
 def get_logo(width=24*mm, height=24*mm):
-    """Return an Image flowable if the logo file exists, else a transparent spacer."""
     logo_path = get_logo_path()
     if os.path.exists(logo_path):
         img = Image(logo_path, width=width, height=height)
@@ -161,13 +156,8 @@ def get_logo(width=24*mm, height=24*mm):
         return Spacer(width, height)
 
 def build_header_table():
-    """
-    Build the university header as a ReportLab Table.
-    Left column: logo (24×24 mm). Right column: university name block.
-    """
     logo_img = get_logo(24*mm, 24*mm)
 
-    # University name block as a nested table of paragraphs
     name_lines = [
         [Paragraph(UNIVERSITY_NAME_LINE1, uni_line1_style)],
         [Paragraph(UNIVERSITY_NAME_LINE2, uni_line2_style)],
@@ -196,7 +186,6 @@ def build_header_table():
     ]))
     return header_table
 
-# uni_line styles must be defined before use; I'll add them here
 uni_line1_style = ParagraphStyle("UniLine1", fontName="Helvetica-Bold", fontSize=14, leading=18, textColor=PRIMARY_BROWN, alignment=TA_LEFT)
 uni_line2_style = ParagraphStyle("UniLine2", fontName="Helvetica-Bold", fontSize=14, leading=18, textColor=PRIMARY_BROWN, alignment=TA_LEFT)
 uni_loc_style = ParagraphStyle("UniLoc", fontName="Helvetica", fontSize=10, leading=13, textColor=ACCENT_BROWN, alignment=TA_LEFT)
@@ -204,7 +193,7 @@ uni_system_style = ParagraphStyle("SysName", fontName="Helvetica-Bold", fontSize
 
 def compute_header_height():
     header_table = build_header_table()
-    available_width = PAGE_W - MARGIN - MARGIN   # MARGIN is same as MARGIN_LEFT/RIGHT
+    available_width = PAGE_W - MARGIN_LEFT - MARGIN_RIGHT
     w, h = header_table.wrap(available_width, PAGE_H)
     return h
 
@@ -213,34 +202,34 @@ def draw_page_decorations(canvas, doc, user_name=""):
     # --- Header ---
     header_table = build_header_table()
     header_height = compute_header_height()
-    available_width = PAGE_W - MARGIN*2
+    available_width = PAGE_W - MARGIN_LEFT - MARGIN_RIGHT
     header_table.wrap(available_width, header_height)
-    header_table.drawOn(canvas, MARGIN, PAGE_H - MARGIN - header_height)
+    header_table.drawOn(canvas, MARGIN_LEFT, PAGE_H - MARGIN - header_height)  # using MARGIN for top
 
     # Separator line below header
     canvas.setStrokeColor(PRIMARY_BROWN)
     canvas.setLineWidth(2)
     line_y = PAGE_H - MARGIN - header_height - 4*mm
-    canvas.line(MARGIN, line_y, PAGE_W - MARGIN, line_y)
+    canvas.line(MARGIN_LEFT, line_y, PAGE_W - MARGIN_RIGHT, line_y)
 
     # --- Footer ---
     footer_y = MARGIN
     canvas.setStrokeColor(ACCENT_BROWN)
     canvas.setLineWidth(0.5)
-    canvas.line(MARGIN, footer_y + 8*mm, PAGE_W - MARGIN, footer_y + 8*mm)
+    canvas.line(MARGIN_LEFT, footer_y + 8*mm, PAGE_W - MARGIN_RIGHT, footer_y + 8*mm)
 
     canvas.setFont("Helvetica", 8)
     canvas.setFillColor(HexColor("#4B4B4B"))
     left_str = f"BBSTUD Transport Management System | {datetime.now().strftime('%Y-%m-%d %H:%M')}"
-    canvas.drawString(MARGIN, footer_y + 3*mm, left_str)
+    canvas.drawString(MARGIN_LEFT, footer_y + 3*mm, left_str)
     if user_name:
         canvas.drawCentredString(PAGE_W / 2, footer_y + 3*mm, f"Generated by: {user_name}")
-    canvas.drawRightString(PAGE_W - MARGIN, footer_y + 3*mm, f"Page {canvas.getPageNumber()}")
+    canvas.drawRightString(PAGE_W - MARGIN_RIGHT, footer_y + 3*mm, f"Page {canvas.getPageNumber()}")
 
     canvas.restoreState()
 
 # ----------------------------------------------------------------------
-# Information Panel (form-like)
+# Information Panel
 # ----------------------------------------------------------------------
 def build_info_panel(info_dict: dict, title="Vehicle Information"):
     data = [[Paragraph(title, summary_title_style)]]
@@ -270,7 +259,7 @@ def build_info_panel(info_dict: dict, title="Vehicle Information"):
     return t
 
 # ----------------------------------------------------------------------
-# Data Table Builder (full-width, professional)
+# Data Table Builder
 # ----------------------------------------------------------------------
 def build_data_table(headers: list, data: list, col_widths=None):
     header_paragraphs = [Paragraph(h, table_header_style) for h in headers]
@@ -278,7 +267,7 @@ def build_data_table(headers: list, data: list, col_widths=None):
     full_data = [header_paragraphs] + rows
 
     if col_widths is None:
-        usable_width = PAGE_W - 2*MARGIN
+        usable_width = PAGE_W - MARGIN_LEFT - MARGIN_RIGHT
         col_widths = [usable_width / len(headers)] * len(headers)
 
     t = Table(full_data, colWidths=col_widths, hAlign='LEFT', repeatRows=1)
@@ -302,7 +291,7 @@ def build_data_table(headers: list, data: list, col_widths=None):
     return t
 
 # ----------------------------------------------------------------------
-# Summary Box (trip summary, repair summary, etc.)
+# Summary Box
 # ----------------------------------------------------------------------
 def build_summary_box(summary_items: list, title="Summary"):
     data = [[Paragraph(title, summary_title_style)]]
@@ -344,16 +333,15 @@ def horizontal_line():
 # Page Template Factory
 # ----------------------------------------------------------------------
 class ReportDocTemplate(BaseDocTemplate):
-    """Custom document template that uses a frame starting below the header."""
     def __init__(self, filename, user_name="", **kwargs):
         super().__init__(filename, **kwargs)
         self.user_name = user_name
         self.header_height = compute_header_height()
-        frame_top = PAGE_H - MARGIN - self.header_height - 4*mm   # gap after header
+        frame_top = PAGE_H - MARGIN - self.header_height - 4*mm
         frame_bottom = MARGIN + 12*mm
         frame = Frame(
-            MARGIN, frame_bottom,
-            PAGE_W - 2*MARGIN,
+            MARGIN_LEFT, frame_bottom,
+            PAGE_W - MARGIN_LEFT - MARGIN_RIGHT,
             frame_top - frame_bottom,
             id='main'
         )
