@@ -36,10 +36,10 @@ class DriverReport:
         story.append(info_table)
         story.append(spacer(8 * mm))
 
-        # Fetch drivers
-        drivers = self.driver_repo.get_all_active_with_vehicle()
+        # Fetch only Active drivers
+        drivers = self.driver_repo.get_active_drivers_with_vehicle()
 
-        # Table headers
+        # Table headers (no Status column)
         headers = ["Driver Name", "Designation", "Vehicle Number", "Route",
                    "Contact Number", "CNIC"]
         data_rows = []

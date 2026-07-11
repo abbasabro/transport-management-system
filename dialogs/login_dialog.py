@@ -26,7 +26,7 @@ class LoginDialog(QDialog):
         layout.setSpacing(20)
 
         # Header
-        header = QLabel("Welcome to BBSUTSD Transport")
+        header = QLabel("🔐 Welcome to BBSUTSD Transport")
         header.setFont(QFont("Segoe UI", 14, QFont.Bold))
         header.setAlignment(Qt.AlignCenter)
         layout.addWidget(header)
@@ -66,6 +66,20 @@ class LoginDialog(QDialog):
 
         try:
             user = self.user_repo.authenticate(username, password)
+        except ValueError as e:
+            error_msg = str(e)
+            if error_msg == "USER_INACTIVE":
+                QMessageBox.warning(
+                    self,
+                    "Account Deactivated",
+                    "Your account has been deactivated.\n"
+                    "Please contact the Transport Head."
+                )
+            else:
+                QMessageBox.warning(self, "Login Failed", "Invalid username or password.")
+            self.password_edit.clear()
+            self.password_edit.setFocus()
+            return
         except Exception as e:
             QMessageBox.critical(self, "Database Error", f"Could not verify credentials:\n{str(e)}")
             return

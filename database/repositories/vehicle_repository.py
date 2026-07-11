@@ -7,7 +7,7 @@ from database.database_manager import DatabaseManager
 class VehicleRepository:
     """
     Repository for vehicles and vehicle types.
-    All queries use parameterized statements and never concatenate strings.
+    Now supports lifecycle via a 'status' column.
     """
 
     def __init__(self, db: DatabaseManager):
@@ -20,17 +20,33 @@ class VehicleRepository:
         cursor = self.db.conn.cursor()
         cursor.execute(
             """
-              SELECT v.id, v.uuid, v.registration_number, vt.name AS vehicle_type,
-           v.model, v.engine_number, v.chassis_number, v.fuel_type
-    FROM vehicles v
-    JOIN vehicle_types vt ON v.vehicle_type_id = vt.id
-    WHERE v.is_deleted = 0
-    ORDER BY v.registration_number
+            SELECT v.id, v.uuid, v.registration_number, vt.name AS vehicle_type,
+                   v.model, v.engine_number, v.chassis_number, v.fuel_type,
+                   v.status, v.is_deleted
+            FROM vehicles v
+            JOIN vehicle_types vt ON v.vehicle_type_id = vt.id
+            WHERE v.is_deleted = 0
+            ORDER BY v.status = 'Inactive', v.registration_number
             """
         )
         return [dict(row) for row in cursor.fetchall()]
 
-    def get_by_id(self, vehicle_id: int):
+    def get_active_vehicles(self) -> list[dict]:
+        cursor = self.db.conn.cursor()
+        cursor.execute(
+            """
+            SELECT v.id, v.uuid, v.registration_number, vt.name AS vehicle_type,
+                   v.model, v.engine_number, v.chassis_number, v.fuel_type,
+                   v.status
+            FROM vehicles v
+            JOIN vehicle_types vt ON v.vehicle_type_id = vt.id
+            WHERE v.is_deleted = 0 AND v.status = 'Active'
+            ORDER BY v.registration_number
+            """
+        )
+        return [dict(row) for row in cursor.fetchall()]
+
+    def get_by_id(self, vehicle_id: int) :
         cursor = self.db.conn.cursor()
         cursor.execute(
             "SELECT * FROM vehicles WHERE id = ? AND is_deleted = 0",
@@ -47,7 +63,7 @@ class VehicleRepository:
         return cursor.fetchall()
 
     # ------------------------------------------------------------------
-    # Write operations (vehicles)
+    # Write operations
     # ------------------------------------------------------------------
     def add(
         self,
@@ -57,7 +73,11 @@ class VehicleRepository:
         engine_number: str,
         chassis_number: str,
         fuel_type: str,
+        status: str = "Active",   # NEW optional parameter
     ) -> bool:
+        """
+        Insert a new vehicle. Status defaults to 'Active' if not provided.
+        """
         new_uuid = str(uuid.uuid4())
         now = datetime.now().isoformat()
         cursor = self.db.conn.cursor()
@@ -66,8 +86,8 @@ class VehicleRepository:
                 """
                 INSERT INTO vehicles (
                     uuid, registration_number, vehicle_type_id, model,
-                    engine_number, chassis_number, fuel_type, created_at
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                    engine_number, chassis_number, fuel_type, status, created_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
                     new_uuid,
@@ -77,6 +97,7 @@ class VehicleRepository:
                     engine_number,
                     chassis_number,
                     fuel_type,
+                    status,
                     now,
                 ),
             )
@@ -85,7 +106,9 @@ class VehicleRepository:
         except sqlite3.IntegrityError as e:
             err_msg = str(e)
             if "UNIQUE constraint failed: vehicles.registration_number" in err_msg:
-                raise ValueError(f"Registration number '{registration_number}' already exists.")
+                raise ValueError(
+                    f"Registration number '{registration_number}' already exists."
+                )
             if "FOREIGN KEY constraint failed" in err_msg:
                 raise ValueError("Invalid vehicle type selected.")
             raise e
@@ -99,6 +122,7 @@ class VehicleRepository:
         engine_number: str,
         chassis_number: str,
         fuel_type: str,
+        status: str,
     ) -> bool:
         now = datetime.now().isoformat()
         cursor = self.db.conn.cursor()
@@ -107,7 +131,8 @@ class VehicleRepository:
                 """
                 UPDATE vehicles
                 SET registration_number = ?, vehicle_type_id = ?, model = ?,
-                    engine_number = ?, chassis_number = ?, fuel_type = ?, updated_at = ?
+                    engine_number = ?, chassis_number = ?, fuel_type = ?,
+                    status = ?, updated_at = ?
                 WHERE id = ?
                 """,
                 (
@@ -117,6 +142,7 @@ class VehicleRepository:
                     engine_number,
                     chassis_number,
                     fuel_type,
+                    status,
                     now,
                     vehicle_id,
                 ),
@@ -128,7 +154,9 @@ class VehicleRepository:
         except sqlite3.IntegrityError as e:
             err_msg = str(e)
             if "UNIQUE constraint failed: vehicles.registration_number" in err_msg:
-                raise ValueError(f"Registration number '{registration_number}' already exists.")
+                raise ValueError(
+                    f"Registration number '{registration_number}' already exists."
+                )
             if "FOREIGN KEY constraint failed" in err_msg:
                 raise ValueError("Invalid vehicle type selected.")
             raise e
@@ -144,23 +172,17 @@ class VehicleRepository:
         self.db.conn.commit()
         return True
 
-    # ------------------------------------------------------------------
-    # Write operations (vehicle types)
-    # ------------------------------------------------------------------
-    def add_vehicle_type(self, name: str) -> bool:
-        """
-        Add a new vehicle type. Raises ValueError if the name already exists.
-        """
+    def add_vehicle_type(self, name: str, description: str = "") -> bool:
         new_uuid = str(uuid.uuid4())
         now = datetime.now().isoformat()
         cursor = self.db.conn.cursor()
         try:
             cursor.execute(
                 """
-                INSERT INTO vehicle_types (uuid, name,  created_at)
-                VALUES (?, ?,  ?)
+                INSERT INTO vehicle_types (uuid, name, description, created_at)
+                VALUES (?, ?, ?, ?)
                 """,
-                (new_uuid, name, now),
+                (new_uuid, name, description, now),
             )
             self.db.conn.commit()
             return True

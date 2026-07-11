@@ -10,7 +10,7 @@ from database.repositories.vehicle_repository import VehicleRepository
 class AddDriverDialog(QDialog):
     """
     Dialog for adding or editing a driver.
-    Includes a 'Spare Driver' checkbox that disables vehicle selection.
+    Includes status, spare driver, and reactivation prompt for inactive drivers.
     """
 
     def __init__(
@@ -25,6 +25,7 @@ class AddDriverDialog(QDialog):
         self.vehicle_repo = vehicle_repo
         self.driver_data = driver_data
         self.edit_mode = driver_data is not None
+        self._reactivating = False   # set to True if reactivating an inactive driver
 
         self.setWindowTitle("Edit Driver" if self.edit_mode else "Add Driver")
         self.setMinimumWidth(450)
@@ -37,34 +38,49 @@ class AddDriverDialog(QDialog):
         layout = QVBoxLayout(self)
         form = QFormLayout()
 
+        # Name
         self.name_edit = QLineEdit()
         form.addRow("Driver Name:", self.name_edit)
 
+        # Designation
         self.designation_edit = QLineEdit()
         form.addRow("Designation:", self.designation_edit)
 
+        # Contact Number
         self.contact_edit = QLineEdit()
         form.addRow("Contact Number:", self.contact_edit)
 
+        # CNIC
         self.cnic_edit = QLineEdit()
         form.addRow("CNIC:", self.cnic_edit)
 
+        # Spare Driver checkbox
         self.spare_checkbox = QCheckBox("Spare Driver")
         self.spare_checkbox.toggled.connect(self._toggle_vehicle_combo)
         form.addRow("", self.spare_checkbox)
 
+        # Vehicle assignment – only Active vehicles
         self.vehicle_combo = QComboBox()
         self.vehicle_combo.addItem("None", None)
         try:
-            vehicles = self.vehicle_repo.get_all_active()
+            # Use get_active_vehicles() to exclude Inactive vehicles
+            vehicles = self.vehicle_repo.get_active_vehicles()
             for v in vehicles:
                 self.vehicle_combo.addItem(v["registration_number"], v["id"])
         except Exception:
             pass
         form.addRow("Assigned Vehicle:", self.vehicle_combo)
 
+        # Route
         self.route_edit = QLineEdit()
         form.addRow("Assigned Route:", self.route_edit)
+
+        # Status
+        self.status_combo = QComboBox()
+        self.status_combo.addItems(["Active", "Inactive"])
+        # Default is Active (new drivers) – but we set in _populate_fields for edit
+        self.status_combo.setCurrentIndex(0)
+        form.addRow("Status:", self.status_combo)
 
         layout.addLayout(form)
 
@@ -98,17 +114,25 @@ class AddDriverDialog(QDialog):
         else:
             self.vehicle_combo.setCurrentIndex(0)
 
+        # Status
+        status = d.get("status", "Active")
+        idx = self.status_combo.findText(status)
+        if idx >= 0:
+            self.status_combo.setCurrentIndex(idx)
+
     def _save(self):
         name = self.name_edit.text().strip()
         designation = self.designation_edit.text().strip()
         contact = self.contact_edit.text().strip()
         cnic = self.cnic_edit.text().strip()
         route = self.route_edit.text().strip()
+        status = self.status_combo.currentText()
 
         if not name or not designation or not cnic:
             QMessageBox.warning(self, "Validation Error", "Name, Designation and CNIC are required.")
             return
 
+        # Determine vehicle ID
         if self.spare_checkbox.isChecked():
             assigned_vehicle_id = None
         else:
@@ -119,17 +143,21 @@ class AddDriverDialog(QDialog):
             assigned_vehicle_id = self.vehicle_combo.currentData()
 
         try:
-            if self.edit_mode:
+            if self.edit_mode or self._reactivating:
+                # Update existing driver (or reactivate)
+                driver_id = self.driver_data["id"]
                 self.driver_repo.update(
-                    driver_id=self.driver_data["id"],
+                    driver_id=driver_id,
                     name=name,
                     designation=designation,
                     contact_number=contact,
                     cnic=cnic,
                     assigned_vehicle_id=assigned_vehicle_id,
                     assigned_route=route,
+                    status=status,
                 )
             else:
+                # New driver – may raise INACTIVE_DRIVER_EXISTS
                 self.driver_repo.add(
                     name=name,
                     designation=designation,
@@ -140,4 +168,31 @@ class AddDriverDialog(QDialog):
                 )
             self.accept()
         except ValueError as e:
-            AppExceptionHandler.show_error("Database Error", str(e), parent=self)
+            if str(e) == "INACTIVE_DRIVER_EXISTS":
+                # Prompt for reactivation
+                reply = QMessageBox.question(
+                    self,
+                    "Inactive Driver",
+                    "This driver already exists but is currently inactive.\n"
+                    "Would you like to reactivate this driver instead?",
+                    QMessageBox.Yes | QMessageBox.No,
+                    QMessageBox.No,
+                )
+                if reply == QMessageBox.Yes:
+                    # Load the inactive driver data and switch to edit mode
+                    existing = self.driver_repo.find_by_cnic(cnic)
+                    if existing:
+                        self.driver_data = self.driver_repo.get_by_id(existing["id"])
+                        self.edit_mode = True
+                        self._reactivating = True
+                        self.setWindowTitle("Edit Driver (Reactivating)")
+                        self._populate_fields()
+                        self.status_combo.setCurrentIndex(0)  # set to Active
+                        self._toggle_vehicle_combo()
+                        # Do NOT call accept yet; user can modify and save again
+                        return
+                    else:
+                        QMessageBox.warning(self, "Error", "Inactive driver not found.")
+                # else: do nothing, user can correct CNIC
+            else:
+                AppExceptionHandler.show_error("Database Error", str(e), parent=self)

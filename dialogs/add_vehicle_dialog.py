@@ -7,10 +7,7 @@ from database.repositories.vehicle_repository import VehicleRepository
 
 
 class AddVehicleDialog(QDialog):
-    """
-    Dialog for adding or editing a vehicle.
-    If vehicle_data is provided, the dialog operates in edit mode and pre‑fills fields.
-    """
+    """Dialog for adding or editing a vehicle, now with a status dropdown."""
 
     def __init__(self, vehicle_repo: VehicleRepository, parent=None, vehicle_data: dict = None):
         super().__init__(parent)
@@ -55,6 +52,11 @@ class AddVehicleDialog(QDialog):
         ])
         form.addRow("Fuel Type:", self.fuel_combo)
 
+        # Status dropdown
+        self.status_combo = QComboBox()
+        self.status_combo.addItems(["Active", "Inactive"])
+        form.addRow("Status:", self.status_combo)
+
         layout.addLayout(form)
 
         buttons = QDialogButtonBox(QDialogButtonBox.Save | QDialogButtonBox.Cancel)
@@ -63,10 +65,8 @@ class AddVehicleDialog(QDialog):
         layout.addWidget(buttons)
 
     def _populate_fields(self):
-        """Pre‑fill fields when editing an existing vehicle."""
         v = self.vehicle_data
         self.registration_edit.setText(str(v.get("registration_number", "")))
-        # vehicle type combo
         type_id = v.get("vehicle_type_id")
         if type_id is not None:
             idx = self.vehicle_type_combo.findData(type_id)
@@ -80,6 +80,11 @@ class AddVehicleDialog(QDialog):
             idx = self.fuel_combo.findText(str(fuel))
             if idx >= 0:
                 self.fuel_combo.setCurrentIndex(idx)
+        # Set status
+        status = v.get("status", "Active")
+        idx = self.status_combo.findText(status)
+        if idx >= 0:
+            self.status_combo.setCurrentIndex(idx)
 
     def _save(self):
         reg = self.registration_edit.text().strip()
@@ -97,6 +102,7 @@ class AddVehicleDialog(QDialog):
         engine = self.engine_edit.text().strip()
         chassis = self.chassis_edit.text().strip()
         fuel = self.fuel_combo.currentText()
+        status = self.status_combo.currentText()
 
         try:
             if self.edit_mode:
@@ -108,6 +114,7 @@ class AddVehicleDialog(QDialog):
                     engine_number=engine,
                     chassis_number=chassis,
                     fuel_type=fuel,
+                    status=status,
                 )
             else:
                 self.vehicle_repo.add(
@@ -117,6 +124,7 @@ class AddVehicleDialog(QDialog):
                     engine_number=engine,
                     chassis_number=chassis,
                     fuel_type=fuel,
+                    status=status,
                 )
             self.accept()
         except ValueError as e:

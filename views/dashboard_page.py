@@ -10,9 +10,8 @@ from security.permissions import PermissionManager
 
 
 class DashboardPage(QWidget):
-    """Dashboard with live summary cards and role‑based action buttons."""
+    """Dashboard with live summary cards (active counts) and role‑based action buttons."""
 
-    # Signals – only created if the corresponding button exists
     add_vehicle_clicked = Signal()
     add_driver_clicked = Signal()
     logs_clicked = Signal()
@@ -25,8 +24,6 @@ class DashboardPage(QWidget):
 
     PRIMARY_BLUE ="#6a3b21"
     GOLD = "#F2A900"
-    
-
     def __init__(
         self,
         vehicle_repo: VehicleRepository,
@@ -65,7 +62,7 @@ class DashboardPage(QWidget):
         main_layout.addLayout(cards_layout)
         main_layout.addSpacing(30)
 
-        # Quick Actions title
+        # Quick Actions
         main_layout.addWidget(QLabel("Quick Actions", font=QFont("Segoe UI", 14, QFont.Bold)))
 
         # Define all possible buttons with their permission and signal names
@@ -86,7 +83,6 @@ class DashboardPage(QWidget):
         for text, icon_name, perm_key, signal_name in all_buttons:
             if self.perm.has_permission(perm_key):
                 btn = self._create_action_button(text, icon_name)
-                # Connect the appropriate signal
                 signal = getattr(self, signal_name, None)
                 if signal:
                     btn.clicked.connect(signal.emit)
@@ -111,12 +107,12 @@ class DashboardPage(QWidget):
         main_layout.addStretch()
 
     def refresh(self):
-        """Fetch counts from database and update card labels."""
+        """Fetch counts for Active vehicles and drivers only."""
         try:
-            vehicles = self.vehicle_repo.get_all_active()
-            drivers = self.driver_repo.get_all_active_with_vehicle()
-            self.vehicle_value_label.setText(str(len(vehicles)))
-            self.driver_value_label.setText(str(len(drivers)))
+            active_vehicles = self.vehicle_repo.get_active_vehicles()
+            active_drivers = self.driver_repo.get_active_drivers_with_vehicle()
+            self.vehicle_value_label.setText(str(len(active_vehicles)))
+            self.driver_value_label.setText(str(len(active_drivers)))
         except Exception:
             self.vehicle_value_label.setText("?")
             self.driver_value_label.setText("?")
@@ -165,7 +161,7 @@ class DashboardPage(QWidget):
                 border-color: {self.GOLD};
             }}
             QPushButton:pressed {{
-                background-color: #a16b4e;
+                background-color: #123a8c;
             }}
         """)
         return btn

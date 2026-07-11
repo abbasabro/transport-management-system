@@ -11,11 +11,11 @@ from security.permissions import PermissionManager
 
 
 class VehiclesPage(QWidget):
-    """Vehicles management page with role‑based button visibility."""
+    """Vehicles management page with lifecycle status display."""
 
     add_vehicle_clicked = Signal()
-    edit_vehicle_requested = Signal(int)               # vehicle_id
-    download_vehicle_list_clicked = Signal()           # only if permitted
+    edit_vehicle_requested = Signal(int)          # vehicle_id
+    download_vehicle_list_clicked = Signal()
     back_requested = Signal()
 
     def __init__(self, vehicle_repo: VehicleRepository, perm_manager: PermissionManager):
@@ -52,7 +52,6 @@ class VehiclesPage(QWidget):
         self.search_edit.textChanged.connect(self._filter_table)
         toolbar.addWidget(self.search_edit)
 
-        # Buttons appear only if permitted
         if self.perm.has_permission("vehicle.add"):
             self.add_btn = QPushButton("Add Vehicle")
             self.add_btn.setIcon(QIcon.fromTheme("list-add"))
@@ -79,12 +78,12 @@ class VehiclesPage(QWidget):
 
         layout.addLayout(toolbar)
 
-        # Bottom: table (always visible, read‑only for everyone except column edits are off anyway)
+        # Bottom: table with 7 columns (Registration, Type, Model, Engine, Chassis, Fuel, Status)
         self.table = QTableWidget()
-        self.table.setColumnCount(6)
+        self.table.setColumnCount(7)
         self.table.setHorizontalHeaderLabels([
             "Registration No", "Vehicle Type", "Model",
-            "Engine Number", "Chassis Number", "Fuel Type", 
+            "Engine Number", "Chassis Number", "Fuel Type", "Status"
         ])
         self.table.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
         self.table.setEditTriggers(QAbstractItemView.NoEditTriggers)
@@ -93,7 +92,7 @@ class VehiclesPage(QWidget):
         layout.addWidget(self.table)
 
     def load_data(self):
-        """Load vehicles from database and populate the table."""
+        """Load all non‑deleted vehicles (Active + Inactive)."""
         try:
             vehicles = self.vehicle_repo.get_all_active()
             self._populate_table(vehicles)
@@ -101,11 +100,11 @@ class VehiclesPage(QWidget):
             self.table.setRowCount(0)
 
     def _populate_table(self, vehicles):
-        """Fill table with vehicle data."""
         self.table.setRowCount(len(vehicles))
         for row, v in enumerate(vehicles):
+            # Registration number item – store vehicle ID in UserRole
             reg_item = QTableWidgetItem(v["registration_number"])
-            reg_item.setData(Qt.UserRole, v["id"])
+            reg_item.setData(Qt.UserRole, v["id"])        # <-- ID stored here
             self.table.setItem(row, 0, reg_item)
 
             self.table.setItem(row, 1, QTableWidgetItem(v.get("vehicle_type", "")))
@@ -113,6 +112,13 @@ class VehiclesPage(QWidget):
             self.table.setItem(row, 3, QTableWidgetItem(v.get("engine_number", "")))
             self.table.setItem(row, 4, QTableWidgetItem(v.get("chassis_number", "")))
             self.table.setItem(row, 5, QTableWidgetItem(v.get("fuel_type", "")))
+
+            # Status column
+            status = v.get("status", "Active")
+            status_item = QTableWidgetItem(status)
+            if status == "Inactive":
+                status_item.setForeground(Qt.gray)
+            self.table.setItem(row, 6, status_item)
 
     def _filter_table(self, text):
         for row in range(self.table.rowCount()):
@@ -128,7 +134,11 @@ class VehiclesPage(QWidget):
             QMessageBox.information(self, "No Selection", "Please select a vehicle to update.")
             return
         row = selected[0].row()
+        # Retrieve ID from the first column's UserRole
         vehicle_id = self.table.item(row, 0).data(Qt.UserRole)
+        if vehicle_id is None:
+            QMessageBox.warning(self, "Error", "Could not retrieve vehicle ID.")
+            return
         self.edit_vehicle_requested.emit(vehicle_id)
 
     def _delete_selected(self):
@@ -138,6 +148,9 @@ class VehiclesPage(QWidget):
             return
         row = selected[0].row()
         vehicle_id = self.table.item(row, 0).data(Qt.UserRole)
+        if vehicle_id is None:
+            QMessageBox.warning(self, "Error", "Could not retrieve vehicle ID.")
+            return
         reg_no = self.table.item(row, 0).text()
         reply = QMessageBox.question(
             self,
