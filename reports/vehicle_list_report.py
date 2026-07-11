@@ -9,7 +9,7 @@ from database.repositories.vehicle_repository import VehicleRepository
 
 
 class VehicleListReport:
-    """Generates a report listing all active vehicles."""
+    """Generates a report listing only ACTIVE vehicles."""
 
     def __init__(self, vehicle_repo: VehicleRepository):
         self.vehicle_repo = vehicle_repo
@@ -36,13 +36,13 @@ class VehicleListReport:
         story.append(info_table)
         story.append(spacer(8 * mm))
 
-        # Fetch vehicles
-        vehicles = self.vehicle_repo.get_all_active()
+        # Fetch only Active vehicles
+        vehicles = self.vehicle_repo.get_active_vehicles()
 
-        # Table headers
+        # Table headers (now includes Status)
         headers = [
             "Registration Number", "Vehicle Type", "Model",
-            "Fuel Type", "Engine Number", "Chassis Number", 
+            "Fuel Type", "Engine Number", "Chassis Number", "Status"
         ]
         data_rows = []
         for v in vehicles:
@@ -53,6 +53,7 @@ class VehicleListReport:
                 v.get("fuel_type", ""),
                 v.get("engine_number", ""),
                 v.get("chassis_number", ""),
+                v.get("status", "Active"),
             ])
 
         if data_rows:

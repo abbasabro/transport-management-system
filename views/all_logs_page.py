@@ -10,10 +10,7 @@ from database.repositories.driver_repository import DriverRepository
 
 
 class AllLogsPage(QWidget):
-    """
-    Displays all vehicles with basic info and assigned driver.
-    Clicking a vehicle opens its log history in a popup dialog.
-    """
+    """Displays all vehicles (Active + Inactive) with driver info and log access."""
 
     vehicle_log_requested = Signal(int)  # vehicle_id
     back_requested = Signal()
@@ -59,7 +56,7 @@ class AllLogsPage(QWidget):
         layout.addWidget(self.table)
 
     def load_data(self):
-        """Load all vehicles with their assigned driver names."""
+        """Load all vehicles (Active + Inactive) with status indication."""
         try:
             vehicles = self.vehicle_repo.get_all_active()
             self._populate_table(vehicles)
@@ -69,8 +66,11 @@ class AllLogsPage(QWidget):
     def _populate_table(self, vehicles):
         self.table.setRowCount(len(vehicles))
         for row, v in enumerate(vehicles):
-            # Registration Number
-            reg_item = QTableWidgetItem(v["registration_number"])
+            # Registration Number – append "(Inactive)" if not active
+            reg_text = v["registration_number"]
+            if v.get("status") == "Inactive":
+                reg_text += " (Inactive)"
+            reg_item = QTableWidgetItem(reg_text)
             reg_item.setData(Qt.UserRole, v["id"])  # store vehicle id
             self.table.setItem(row, 0, reg_item)
 
@@ -78,7 +78,7 @@ class AllLogsPage(QWidget):
             type_item = QTableWidgetItem(v.get("vehicle_type", ""))
             self.table.setItem(row, 1, type_item)
 
-            # Driver Name – fetch from driver repository
+            # Driver Name – fetch current active driver (or show "Not Assigned")
             driver = self.driver_repo.get_driver_by_vehicle(v["id"])
             driver_name = driver["name"] if driver else "Not Assigned"
             driver_item = QTableWidgetItem(driver_name)

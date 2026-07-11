@@ -12,11 +12,11 @@ from security.permissions import PermissionManager
 
 
 class DriversPage(QWidget):
-    """Drivers management page with role‑based button visibility."""
+    """Drivers management page with lifecycle status display."""
 
     add_driver_clicked = Signal()
     edit_driver_requested = Signal(int)          # driver_id
-    download_driver_report_clicked = Signal()    # only if permitted
+    download_driver_report_clicked = Signal()
     back_requested = Signal()
 
     def __init__(
@@ -85,15 +85,14 @@ class DriversPage(QWidget):
 
         layout.addLayout(toolbar)
 
-        # Bottom: table
+        # Bottom: table with 7 columns (no hidden column)
         self.table = QTableWidget()
-        self.table.setColumnCount(6)
+        self.table.setColumnCount(7)
         self.table.setHorizontalHeaderLabels([
             "Driver Name", "Designation", "Vehicle Number",
-            "Contact Number", "CNIC", "Route"
+            "Contact Number", "CNIC", "Route", "Status"
         ])
         self.table.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
-        # If user has update permission, allow inline editing of Route column only
         if self.perm.has_permission("driver.update"):
             self.table.setEditTriggers(QAbstractItemView.DoubleClicked | QAbstractItemView.EditKeyPressed)
             self.table.itemChanged.connect(self._on_item_changed)
@@ -104,19 +103,18 @@ class DriversPage(QWidget):
         layout.addWidget(self.table)
 
     def load_data(self):
-        """Fetch drivers from database and populate table."""
+        """Fetch all non‑deleted drivers (Active + Inactive)."""
         try:
-            drivers = self.driver_repo.get_all_active_with_vehicle()
+            drivers = self.driver_repo.get_all_drivers_with_vehicle()
             self._populate_table(drivers)
         except Exception as e:
             self.table.setRowCount(0)
 
     def _populate_table(self, drivers):
-        """Fill table with driver data, controlling editability via permission."""
         self.table.blockSignals(True)
         self.table.setRowCount(len(drivers))
         for row, d in enumerate(drivers):
-            # Name column (stores driver id)
+            # Name column – store driver id in UserRole
             name_item = QTableWidgetItem(d["name"])
             name_item.setData(Qt.UserRole, d["id"])
             name_item.setFlags(name_item.flags() & ~Qt.ItemIsEditable)
@@ -150,13 +148,26 @@ class DriversPage(QWidget):
             else:
                 route_item.setFlags(route_item.flags() & ~Qt.ItemIsEditable)
             self.table.setItem(row, 5, route_item)
+
+            # Status column
+            status = d.get("status", "Active")
+            status_item = QTableWidgetItem(status)
+            status_item.setFlags(status_item.flags() & ~Qt.ItemIsEditable)
+            if status == "Inactive":
+                status_item.setForeground(Qt.gray)
+            self.table.setItem(row, 6, status_item)
+
         self.table.blockSignals(False)
 
     def _on_item_changed(self, item):
         """Called when the Route column is edited inline."""
         if item.column() != 5:
             return
+        # Get driver id from the first column's UserRole
         driver_id = self.table.item(item.row(), 0).data(Qt.UserRole)
+        if driver_id is None:
+            QMessageBox.warning(self, "Error", "Could not retrieve driver ID.")
+            return
         new_route = item.text().strip()
         try:
             driver = self.driver_repo.get_by_id(driver_id)
@@ -172,6 +183,7 @@ class DriversPage(QWidget):
                 cnic=driver["cnic"],
                 assigned_vehicle_id=driver["assigned_vehicle_id"],
                 assigned_route=new_route,
+                status=driver["status"],  # keep current status
             )
         except ValueError as e:
             QMessageBox.warning(self, "Update Failed", str(e))
@@ -184,6 +196,9 @@ class DriversPage(QWidget):
             return
         row = selected[0].row()
         driver_id = self.table.item(row, 0).data(Qt.UserRole)
+        if driver_id is None:
+            QMessageBox.warning(self, "Error", "Could not retrieve driver ID.")
+            return
         self.edit_driver_requested.emit(driver_id)
 
     def _delete_selected(self):
@@ -193,6 +208,9 @@ class DriversPage(QWidget):
             return
         row = selected[0].row()
         driver_id = self.table.item(row, 0).data(Qt.UserRole)
+        if driver_id is None:
+            QMessageBox.warning(self, "Error", "Could not retrieve driver ID.")
+            return
         driver_name = self.table.item(row, 0).text()
         reply = QMessageBox.question(
             self,

@@ -10,7 +10,7 @@ from database.repositories.vehicle_repository import VehicleRepository
 
 class LogsPage(QWidget):
     """
-    Logs Management page: lists vehicles. Clicking a row opens the log entry dialog.
+    Logs Management page: lists active vehicles. Clicking a row opens the log entry dialog.
     """
 
     add_log_requested = Signal(int, str)  # vehicle_id, registration_number
@@ -62,9 +62,9 @@ class LogsPage(QWidget):
         layout.addWidget(self.table)
 
     def load_data(self):
-        """Load all active vehicles and populate the table."""
+        """Load all ACTIVE vehicles and populate the table."""
         try:
-            vehicles = self.vehicle_repo.get_all_active()
+            vehicles = self.vehicle_repo.get_active_vehicles()
             self._populate_table(vehicles)
         except Exception:
             self.table.setRowCount(0)

@@ -10,8 +10,13 @@ class UserRepository:
     def __init__(self, db: DatabaseManager):
         self.db = db
 
-    def authenticate(self, username: str, password: str) :
-        """Verify username and password, return user dict or None."""
+    def authenticate(self, username: str, password: str) -> dict:
+        """
+        Verify username and password.
+        Returns user dict if credentials are valid and user is Active.
+        Raises ValueError('USER_INACTIVE') if the user is inactive.
+        Raises ValueError('Invalid credentials') if username/password is wrong.
+        """
         cursor = self.db.conn.cursor()
         cursor.execute(
             "SELECT id, uuid, username, password_hash, full_name, role, status "
@@ -20,7 +25,11 @@ class UserRepository:
         )
         row = cursor.fetchone()
         if row is None:
-            return None
+            raise ValueError("Invalid credentials")
+
+        # Check if user is active
+        if row["status"] != "Active":
+            raise ValueError("USER_INACTIVE")
 
         stored_hash = row["password_hash"]
         if bcrypt.checkpw(password.encode("utf-8"), stored_hash.encode("utf-8")):
@@ -32,7 +41,7 @@ class UserRepository:
                 "role": row["role"],
                 "status": row["status"],
             }
-        return None
+        raise ValueError("Invalid credentials")
 
     def get_all_users(self) -> list[dict]:
         """Return all non‑deleted users."""
