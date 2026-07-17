@@ -23,7 +23,7 @@ class AppExceptionHandler:
         """Return the writable directory for log files."""
         if getattr(sys, 'frozen', False):
             # Running as a PyInstaller bundle – use AppData
-            base = os.path.join(os.environ.get("APPDATA", os.path.expanduser("~")), "BBSTUD-TMS")
+            base = os.path.join(os.environ.get("APPDATA", os.path.expanduser("~")), "BBSUTSD-TMS")
         else:
             # Development mode – use the project root
             base = os.path.abspath(".")
@@ -42,7 +42,7 @@ class AppExceptionHandler:
     def _setup_logger(cls):
         log_dir = cls._get_log_dir()  # now works, static method
         log_path = os.path.join(log_dir, "application.log")
-        logger = logging.getLogger("BBSTUD_TMS")
+        logger = logging.getLogger("BBSUTSD_TMS")
         logger.setLevel(logging.DEBUG)
 
         # Remove any existing handlers (to avoid duplicates)
