@@ -48,12 +48,12 @@ class DatabaseManager:
     def _get_working_dir(self) -> str:
         """
         Return a writable directory for the working database.
-        In production (frozen) we use %APPDATA%\BBSTUD-TMS.
+        In production (frozen) we use %APPDATA%\BBSUTSD-TMS.
         In development we use the current directory so that existing data is not lost.
         """
         if getattr(sys, 'frozen', False):
             # Running as PyInstaller bundle – use AppData
-            return os.path.join(os.environ.get("APPDATA", os.path.expanduser("~")), "BBSTUD-TMS")
+            return os.path.join(os.environ.get("APPDATA", os.path.expanduser("~")), "BBSUTSD-TMS")
         else:
             # Development mode – use the project root
             return os.path.abspath(".")

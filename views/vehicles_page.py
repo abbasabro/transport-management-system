@@ -97,6 +97,8 @@ class VehiclesPage(QWidget):
             vehicles = self.vehicle_repo.get_all_active()
             self._populate_table(vehicles)
         except Exception as e:
+            # Show the error so we know what went wrong
+            QMessageBox.critical(self, "Vehicle Load Error", f"Could not load vehicles:\n{str(e)}")
             self.table.setRowCount(0)
 
     def _populate_table(self, vehicles):
